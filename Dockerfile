@@ -17,8 +17,9 @@ WORKDIR /var/www/html
 COPY . .
 
 RUN composer install --prefer-dist --no-interaction --no-progress \
-    && php artisan package:discover --ansi || true
+    && php artisan package:discover --ansi \
+    && chmod +x scripts/docker-entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+ENTRYPOINT ["/bin/sh", "/var/www/html/scripts/docker-entrypoint.sh"]

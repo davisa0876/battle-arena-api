@@ -1,0 +1,11 @@
+{
+  "id": 9999,
+  "name": "incomplete-mon",
+  "height": 5,
+  "weight": 50,
+  "stats": [
+    {"base_stat": 40, "stat": {"name": "hp"}},
+    {"base_stat": 40, "stat": {"name": "attack"}}
+  ],
+  "types": []
+}

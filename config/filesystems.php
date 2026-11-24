@@ -58,11 +58,16 @@ return [
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
             'throw' => false,
             'report' => false,
-            'visibility' => 'public',
+            // Private by default. Prefer temporary signed URLs for object access.
+            'visibility' => 'private',
         ],
 
         /*
-         | Profile photos live under profiles/ in the S3-compatible bucket (MinIO locally).
+         | Profile photos live under profiles/ in the S3-compatible bucket (RustFS locally).
+         | Objects are private. Public avatar delivery can be added later via:
+         | - short-lived signed GetObject URLs, or
+         | - a dedicated public prefix (e.g. public-avatars/*) with a scoped bucket policy
+         |   that does not expose unrelated user files under profiles/.
          */
         'profiles' => [
             'driver' => 's3',
@@ -76,7 +81,7 @@ return [
             'root' => 'profiles',
             'throw' => false,
             'report' => false,
-            'visibility' => 'public',
+            'visibility' => 'private',
         ],
 
     ],
