@@ -15,7 +15,6 @@ final class CreatureImportService
 {
     /**
      * Deterministic starter catalog (~20 Gen I varieties).
-     * Documented selection for reproducible local development and demos.
      *
      * @var list<int>
      */
@@ -37,6 +36,102 @@ final class CreatureImportService
         $ids = $externalIds ?? self::DEFAULT_EXTERNAL_IDS;
         $ids = array_values(array_unique(array_map('intval', $ids)));
 
+        try {
+            $payloads = $this->provider->fetchByExternalIds($ids);
+        } catch (CreatureProviderException $exception) {
+            $this->logProviderFailure($exception);
+            throw $exception;
+        }
+
+        $summary = $this->persistPayloads($ids, $payloads, 'externalId');
+        $this->resolveEvolutionLinks();
+
+        return $summary;
+    }
+
+    /**
+     * @param  list<int>  $speciesExternalIds
+     * @return array{imported: int, updated: int, skipped: int, failed: int, errors: list<string>}
+     */
+    public function importSpeciesIds(array $speciesExternalIds, bool $resolveEvolutions = true): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $speciesExternalIds)));
+
+        try {
+            $payloads = $this->provider->fetchBySpeciesExternalIds($ids);
+        } catch (CreatureProviderException $exception) {
+            $this->logProviderFailure($exception);
+            throw $exception;
+        }
+
+        $summary = $this->persistPayloads($ids, $payloads, 'speciesExternalId');
+
+        if ($resolveEvolutions) {
+            $this->resolveEvolutionLinks();
+        }
+
+        return $summary;
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function listNationalDexSpeciesIds(): array
+    {
+        return $this->provider->listNationalDexSpeciesIds();
+    }
+
+    public function resolveEvolutionLinks(): void
+    {
+        $creatures = Creature::query()
+            ->where('provider', $this->provider->providerName())
+            ->whereNotNull('species_external_id')
+            ->get(['id', 'species_external_id', 'evolves_from_species_external_id']);
+
+        $bySpeciesId = [];
+        foreach ($creatures as $creature) {
+            $bySpeciesId[(int) $creature->species_external_id] = $creature;
+        }
+
+        foreach ($creatures as $creature) {
+            $fromSpeciesId = $creature->evolves_from_species_external_id;
+            $parent = $fromSpeciesId !== null
+                ? ($bySpeciesId[(int) $fromSpeciesId] ?? null)
+                : null;
+
+            $stage = 1;
+            if ($parent !== null) {
+                $visited = [];
+                $cursor = $parent;
+                $depth = 1;
+                while ($cursor !== null && $depth < 10) {
+                    if (isset($visited[$cursor->id])) {
+                        break;
+                    }
+                    $visited[$cursor->id] = true;
+                    $depth++;
+                    $nextSpecies = $cursor->evolves_from_species_external_id;
+                    $cursor = $nextSpecies !== null
+                        ? ($bySpeciesId[(int) $nextSpecies] ?? null)
+                        : null;
+                }
+                $stage = $depth;
+            }
+
+            Creature::query()->whereKey($creature->id)->update([
+                'evolves_from_id' => $parent?->id,
+                'evolution_stage' => $stage,
+            ]);
+        }
+    }
+
+    /**
+     * @param  list<int>  $requestedIds
+     * @param  list<ExternalCreatureData>  $payloads
+     * @return array{imported: int, updated: int, skipped: int, failed: int, errors: list<string>}
+     */
+    private function persistPayloads(array $requestedIds, array $payloads, string $keyedBy): array
+    {
         $summary = [
             'imported' => 0,
             'updated' => 0,
@@ -45,28 +140,23 @@ final class CreatureImportService
             'errors' => [],
         ];
 
-        try {
-            $payloads = $this->provider->fetchByExternalIds($ids);
-        } catch (CreatureProviderException $exception) {
-            Log::warning('Creature import aborted: provider failure.', [
-                'provider' => $this->provider->providerName(),
-                'message' => $exception->getMessage(),
-            ]);
-
-            throw $exception;
-        }
-
-        $byExternalId = [];
+        $byKey = [];
         foreach ($payloads as $payload) {
-            $byExternalId[$payload->externalId] = $payload;
+            $key = $keyedBy === 'speciesExternalId'
+                ? $payload->speciesExternalId
+                : $payload->externalId;
+            if ($key === null) {
+                continue;
+            }
+            $byKey[$key] = $payload;
         }
 
-        foreach ($ids as $externalId) {
-            $payload = $byExternalId[$externalId] ?? null;
+        foreach ($requestedIds as $requestedId) {
+            $payload = $byKey[$requestedId] ?? null;
 
             if ($payload === null) {
                 $summary['failed']++;
-                $summary['errors'][] = "Missing provider payload for external id {$externalId}.";
+                $summary['errors'][] = "Missing provider payload for external id {$requestedId}.";
                 continue;
             }
 
@@ -78,9 +168,9 @@ final class CreatureImportService
                 $summary['errors'][] = $exception->getMessage();
             } catch (\Throwable $exception) {
                 $summary['failed']++;
-                $summary['errors'][] = "Failed to persist external id {$externalId}: {$exception->getMessage()}";
+                $summary['errors'][] = "Failed to persist external id {$requestedId}: {$exception->getMessage()}";
                 Log::error('Creature import persist failure.', [
-                    'external_id' => $externalId,
+                    'external_id' => $requestedId,
                     'message' => $exception->getMessage(),
                 ]);
             }
@@ -104,11 +194,15 @@ final class CreatureImportService
             $existing = Creature::query()
                 ->where('provider', $payload->provider)
                 ->where('external_id', $payload->externalId)
+                ->lockForUpdate()
                 ->first();
 
             $attributes = [
                 'provider' => $payload->provider,
                 'external_id' => $payload->externalId,
+                'species_external_id' => $payload->speciesExternalId,
+                'evolves_from_species_external_id' => $payload->evolvesFromSpeciesExternalId,
+                'is_default_form' => $payload->isDefaultForm,
                 'name' => $payload->name,
                 'slug' => $payload->slug,
                 'height_cm' => $payload->heightCm,
@@ -123,14 +217,34 @@ final class CreatureImportService
 
             if ($existing === null) {
                 $attributes['image_ref'] = $payload->imageRef;
-                $creature = Creature::query()->create($attributes);
+                $attributes['evolution_stage'] = 1;
+
+                try {
+                    $creature = Creature::query()->create($attributes);
+                } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+                    // Concurrent import won the insert race — fall through to update.
+                    $existing = Creature::query()
+                        ->where('provider', $payload->provider)
+                        ->where('external_id', $payload->externalId)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+
+                    if ($payload->imageRef !== null) {
+                        $attributes['image_ref'] = $payload->imageRef;
+                    }
+
+                    $existing->fill($attributes);
+                    $existing->save();
+                    $this->syncTypes($existing, $payload->types);
+
+                    return 'updated';
+                }
+
                 $this->syncTypes($creature, $payload->types);
 
                 return 'imported';
             }
 
-            // Never replace a valid stored image with null from incomplete upstream data.
-            // Allow upgrades when a newer trusted URL is provided.
             if ($payload->imageRef !== null) {
                 $attributes['image_ref'] = $payload->imageRef;
             }
@@ -159,10 +273,15 @@ final class CreatureImportService
             $sync[$creatureType->id] = ['slot' => $type['slot']];
         }
 
-        // Replace rather than sync(): sync() updates/attaches rows one by one, which can
-        // transiently violate unique(creature_id, slot) when types swap slots.
-        // Callers run inside a transaction, so the replacement is atomic.
         $creature->types()->detach();
         $creature->types()->attach($sync);
+    }
+
+    private function logProviderFailure(CreatureProviderException $exception): void
+    {
+        Log::warning('Creature import aborted: provider failure.', [
+            'provider' => $this->provider->providerName(),
+            'message' => $exception->getMessage(),
+        ]);
     }
 }

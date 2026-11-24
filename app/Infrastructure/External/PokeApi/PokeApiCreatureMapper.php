@@ -28,9 +28,10 @@ final class PokeApiCreatureMapper
     ];
 
     /**
-     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $payload Pokemon payload
+     * @param  array<string, mixed>|null  $speciesPayload Optional species payload (evolution metadata)
      */
-    public function map(array $payload): ExternalCreatureData
+    public function map(array $payload, ?array $speciesPayload = null): ExternalCreatureData
     {
         $externalId = (int) ($payload['id'] ?? 0);
         $name = (string) ($payload['name'] ?? '');
@@ -82,6 +83,23 @@ final class PokeApiCreatureMapper
         $heightDm = array_key_exists('height', $payload) ? (int) $payload['height'] : null;
         $weightHg = array_key_exists('weight', $payload) ? (int) $payload['weight'] : null;
 
+        $speciesExternalId = null;
+        $evolvesFromSpeciesExternalId = null;
+        $isDefaultForm = (bool) ($payload['is_default'] ?? true);
+
+        if (is_array($speciesPayload)) {
+            $speciesExternalId = (int) ($speciesPayload['id'] ?? 0) ?: null;
+            $evolvesFromUrl = data_get($speciesPayload, 'evolves_from_species.url');
+            if (is_string($evolvesFromUrl) && preg_match('#/pokemon-species/(\d+)/?#', $evolvesFromUrl, $matches) === 1) {
+                $evolvesFromSpeciesExternalId = (int) $matches[1];
+            }
+        } else {
+            $speciesUrl = data_get($payload, 'species.url');
+            if (is_string($speciesUrl) && preg_match('#/pokemon-species/(\d+)/?#', $speciesUrl, $matches) === 1) {
+                $speciesExternalId = (int) $matches[1];
+            }
+        }
+
         return new ExternalCreatureData(
             provider: self::PROVIDER,
             externalId: $externalId,
@@ -97,6 +115,9 @@ final class PokeApiCreatureMapper
             baseSpeed: $stats['baseSpeed'],
             types: $types,
             imageRef: $this->resolveImageUrl($payload),
+            speciesExternalId: $speciesExternalId,
+            evolvesFromSpeciesExternalId: $evolvesFromSpeciesExternalId,
+            isDefaultForm: $isDefaultForm,
         );
     }
 

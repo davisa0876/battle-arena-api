@@ -27,6 +27,7 @@ class CreatureResource extends JsonResource
             'image_ref' => $imageUrl,
             // Explicit public field for display URLs persisted in PostgreSQL.
             'image_url' => $imageUrl,
+            'evolution_stage' => (int) ($this->evolution_stage ?? 1),
             'types' => CreatureTypeResource::collection($this->whenLoaded('types')),
             'base_stats' => [
                 'hp' => $this->base_hp,
@@ -36,6 +37,16 @@ class CreatureResource extends JsonResource
                 'special_defense' => $this->base_special_defense,
                 'speed' => $this->base_speed,
             ],
+            'evolves_from' => $this->when(
+                $this->relationLoaded('evolvesFrom'),
+                fn () => $this->evolvesFrom === null
+                    ? null
+                    : (new self($this->evolvesFrom))->resolve()
+            ),
+            'evolutions' => $this->when(
+                $this->relationLoaded('evolutions'),
+                fn () => self::collection($this->evolutions)->resolve()
+            ),
         ];
     }
 }

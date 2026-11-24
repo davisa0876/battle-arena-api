@@ -537,4 +537,69 @@ class CreatureImportServiceTest extends TestCase
         $this->assertDatabaseHas('creatures', ['external_id' => 1, 'name' => 'Last']);
         $this->assertDatabaseMissing('creatures', ['name' => 'First']);
     }
+
+    // ----------------------------------------------------------- evolutions
+
+    #[Test]
+    public function test_import_resolves_evolution_links_and_stages(): void
+    {
+        $this->provideForAnyIds([
+            $this->dto(1, [
+                'name' => 'Bulbasaur',
+                'slug' => 'bulbasaur',
+                'speciesExternalId' => 1,
+                'evolvesFromSpeciesExternalId' => null,
+            ]),
+            $this->dto(2, [
+                'name' => 'Ivysaur',
+                'slug' => 'ivysaur',
+                'speciesExternalId' => 2,
+                'evolvesFromSpeciesExternalId' => 1,
+            ]),
+            $this->dto(3, [
+                'name' => 'Venusaur',
+                'slug' => 'venusaur',
+                'speciesExternalId' => 3,
+                'evolvesFromSpeciesExternalId' => 2,
+            ]),
+        ]);
+
+        $summary = $this->service->import([1, 2, 3]);
+
+        $this->assertSame(3, $summary['imported']);
+
+        $base = Creature::query()->where('slug', 'bulbasaur')->firstOrFail();
+        $mid = Creature::query()->where('slug', 'ivysaur')->firstOrFail();
+        $final = Creature::query()->where('slug', 'venusaur')->firstOrFail();
+
+        $this->assertNull($base->evolves_from_id);
+        $this->assertSame(1, $base->evolution_stage);
+        $this->assertSame($base->id, $mid->evolves_from_id);
+        $this->assertSame(2, $mid->evolution_stage);
+        $this->assertSame($mid->id, $final->evolves_from_id);
+        $this->assertSame(3, $final->evolution_stage);
+    }
+
+    #[Test]
+    public function test_import_species_ids_can_skip_evolution_resolve(): void
+    {
+        $this->provider->shouldReceive('fetchBySpeciesExternalIds')
+            ->once()
+            ->with([1])
+            ->andReturn([
+                $this->dto(1, [
+                    'speciesExternalId' => 1,
+                    'evolvesFromSpeciesExternalId' => null,
+                ]),
+            ]);
+
+        $summary = $this->service->importSpeciesIds([1], resolveEvolutions: false);
+
+        $this->assertSame(1, $summary['imported']);
+        $this->assertDatabaseHas('creatures', [
+            'external_id' => 1,
+            'evolves_from_id' => null,
+            'evolution_stage' => 1,
+        ]);
+    }
 }

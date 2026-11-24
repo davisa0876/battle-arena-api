@@ -20,9 +20,16 @@ class CreatureFactory extends Factory
     {
         $name = fake()->unique()->words(2, true);
 
+        $externalId = fake()->unique()->numberBetween(1, 50_000);
+
         return [
             'provider' => 'pokeapi',
-            'external_id' => fake()->unique()->numberBetween(1, 50_000),
+            'external_id' => $externalId,
+            'species_external_id' => $externalId,
+            'evolves_from_species_external_id' => null,
+            'evolves_from_id' => null,
+            'evolution_stage' => 1,
+            'is_default_form' => true,
             'name' => Str::title($name),
             'slug' => Str::slug($name).'-'.fake()->unique()->numerify('###'),
             'height_cm' => fake()->numberBetween(20, 250),
@@ -35,5 +42,15 @@ class CreatureFactory extends Factory
             'base_speed' => fake()->numberBetween(30, 150),
             'image_ref' => null,
         ];
+    }
+
+    public function evolutionOf(Creature $parent, int $stage = 2): static
+    {
+        return $this->state(fn (): array => [
+            'evolves_from_id' => $parent->id,
+            'evolves_from_species_external_id' => $parent->species_external_id,
+            'evolution_stage' => $stage,
+            'is_default_form' => true,
+        ]);
     }
 }

@@ -25,6 +25,9 @@ final readonly class ExternalCreatureData
         public int $baseSpeed,
         public array $types,
         public ?string $imageRef = null,
+        public ?int $speciesExternalId = null,
+        public ?int $evolvesFromSpeciesExternalId = null,
+        public bool $isDefaultForm = true,
     ) {}
 
     public function isComplete(): bool

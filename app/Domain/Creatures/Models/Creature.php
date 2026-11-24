@@ -4,15 +4,15 @@ namespace App\Domain\Creatures\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Playable creature variety persisted in the local catalog.
  *
- * This row represents a concrete combat variety (stats + types), not an abstract
- * biological species. Alternate forms can be added later as additional rows that
- * share a future species_id (or a provider-specific external form id) without
- * changing the public catalog contract.
+ * Evolution: `evolves_from_id` is null for stage-1 (base) forms shown in the catalog.
+ * `evolutions()` lists the immediate next forms for the detail screen.
  */
 class Creature extends Model
 {
@@ -22,6 +22,11 @@ class Creature extends Model
     protected $fillable = [
         'provider',
         'external_id',
+        'species_external_id',
+        'evolves_from_species_external_id',
+        'evolves_from_id',
+        'evolution_stage',
+        'is_default_form',
         'name',
         'slug',
         'height_cm',
@@ -39,6 +44,11 @@ class Creature extends Model
     {
         return [
             'external_id' => 'integer',
+            'species_external_id' => 'integer',
+            'evolves_from_species_external_id' => 'integer',
+            'evolves_from_id' => 'integer',
+            'evolution_stage' => 'integer',
+            'is_default_form' => 'boolean',
             'height_cm' => 'integer',
             'weight_g' => 'integer',
             'base_hp' => 'integer',
@@ -56,6 +66,26 @@ class Creature extends Model
             ->withPivot('slot')
             ->withTimestamps()
             ->orderByPivot('slot');
+    }
+
+    public function evolvesFrom(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'evolves_from_id');
+    }
+
+    public function evolutions(): HasMany
+    {
+        return $this->hasMany(self::class, 'evolves_from_id')
+            ->orderBy('evolution_stage')
+            ->orderBy('name')
+            ->orderBy('id');
+    }
+
+    public function scopeBaseForms($query)
+    {
+        return $query
+            ->where('is_default_form', true)
+            ->whereNull('evolves_from_id');
     }
 
     protected static function newFactory(): \Database\Factories\CreatureFactory

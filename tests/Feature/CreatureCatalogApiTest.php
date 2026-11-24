@@ -201,4 +201,42 @@ class CreatureCatalogApiTest extends TestCase
             ->assertJsonPath('data.0.slug', 'fire')
             ->assertJsonPath('data.1.slug', 'water');
     }
+
+    public function test_catalog_lists_only_base_forms(): void
+    {
+        $base = Creature::factory()->create(['name' => 'Charmander', 'slug' => 'charmander']);
+        Creature::factory()->evolutionOf($base)->create(['name' => 'Charmeleon', 'slug' => 'charmeleon']);
+
+        $this->getJson('/api/creatures')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.slug', 'charmander')
+            ->assertJsonPath('meta.total', 1);
+    }
+
+    public function test_creature_detail_includes_evolutions(): void
+    {
+        $base = Creature::factory()->create([
+            'name' => 'Charmander',
+            'slug' => 'charmander',
+            'evolution_stage' => 1,
+        ]);
+        $mid = Creature::factory()->evolutionOf($base, 2)->create([
+            'name' => 'Charmeleon',
+            'slug' => 'charmeleon',
+        ]);
+        Creature::factory()->evolutionOf($mid, 3)->create([
+            'name' => 'Charizard',
+            'slug' => 'charizard',
+        ]);
+
+        $this->getJson('/api/creatures/charmander')
+            ->assertOk()
+            ->assertJsonPath('data.evolution_stage', 1)
+            ->assertJsonPath('data.evolves_from', null)
+            ->assertJsonPath('data.evolutions.0.slug', 'charmeleon')
+            ->assertJsonPath('data.evolutions.0.evolution_stage', 2)
+            ->assertJsonPath('data.evolutions.0.evolutions.0.slug', 'charizard')
+            ->assertJsonPath('data.evolutions.0.evolutions.0.evolution_stage', 3);
+    }
 }

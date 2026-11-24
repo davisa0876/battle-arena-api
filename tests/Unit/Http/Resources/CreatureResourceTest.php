@@ -73,7 +73,7 @@ class CreatureResourceTest extends TestCase
         $data = $this->render(new CreatureResource($creature));
 
         $this->assertSame(
-            ['id', 'name', 'slug', 'height_cm', 'weight_g', 'image_ref', 'image_url', 'types', 'base_stats'],
+            ['id', 'name', 'slug', 'height_cm', 'weight_g', 'image_ref', 'image_url', 'evolution_stage', 'types', 'base_stats'],
             array_keys($data),
         );
         $this->assertSame(
@@ -85,13 +85,44 @@ class CreatureResourceTest extends TestCase
     #[Test]
     public function test_maps_scalar_values(): void
     {
-        $data = $this->render(new CreatureResource($this->creature()));
+        $data = $this->render(new CreatureResource($this->creature(['evolution_stage' => 1])));
 
         $this->assertSame(7, $data['id']);
         $this->assertSame('Pikachu', $data['name']);
         $this->assertSame('pikachu', $data['slug']);
         $this->assertSame(40, $data['height_cm']);
         $this->assertSame(6000, $data['weight_g']);
+        $this->assertSame(1, $data['evolution_stage']);
+    }
+
+    #[Test]
+    public function test_evolutions_are_omitted_when_relation_not_loaded(): void
+    {
+        $data = $this->render(new CreatureResource($this->creature()));
+
+        $this->assertArrayNotHasKey('evolutions', $data);
+        $this->assertArrayNotHasKey('evolves_from', $data);
+    }
+
+    #[Test]
+    public function test_evolutions_are_included_when_relation_is_loaded(): void
+    {
+        $child = $this->creature(['name' => 'Raichu', 'slug' => 'raichu', 'evolution_stage' => 2]);
+        $child->setAttribute('id', 8);
+        $child->setRelation('types', $this->types([['id' => 1, 'name' => 'Electric', 'slug' => 'electric']]));
+        $child->setRelation('evolutions', collect());
+
+        $creature = $this->creature(['evolution_stage' => 1]);
+        $creature->setRelation('types', $this->types([['id' => 1, 'name' => 'Electric', 'slug' => 'electric']]));
+        $creature->setRelation('evolvesFrom', null);
+        $creature->setRelation('evolutions', collect([$child]));
+
+        $data = $this->render(new CreatureResource($creature));
+
+        $this->assertNull($data['evolves_from']);
+        $this->assertCount(1, $data['evolutions']);
+        $this->assertSame('raichu', $data['evolutions'][0]['slug']);
+        $this->assertSame(2, $data['evolutions'][0]['evolution_stage']);
     }
 
     #[Test]

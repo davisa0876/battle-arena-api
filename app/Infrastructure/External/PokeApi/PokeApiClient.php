@@ -24,8 +24,67 @@ final class PokeApiClient
      */
     public function getPokemon(int $externalId): array
     {
-        $cacheKey = "pokeapi:pokemon:{$externalId}";
+        return $this->getJson("/pokemon/{$externalId}", "pokeapi:pokemon:{$externalId}");
+    }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function getPokemonSpecies(int $speciesExternalId): array
+    {
+        return $this->getJson("/pokemon-species/{$speciesExternalId}", "pokeapi:species:{$speciesExternalId}");
+    }
+
+    /**
+     * National dex species IDs (stable catalog universe for Battle Arena).
+     *
+     * @return list<int>
+     */
+    public function listSpeciesExternalIds(): array
+    {
+        $payload = $this->getJson('/pokemon-species?limit=1&offset=0', 'pokeapi:species:count');
+        $count = (int) ($payload['count'] ?? 0);
+        if ($count < 1) {
+            throw new CreatureProviderException('PokéAPI returned an empty pokemon-species catalog.');
+        }
+
+        $ids = [];
+        $offset = 0;
+        $limit = 200;
+
+        while ($offset < $count) {
+            $page = $this->getJson(
+                "/pokemon-species?limit={$limit}&offset={$offset}",
+                "pokeapi:species:page:{$offset}:{$limit}",
+            );
+
+            foreach ($page['results'] ?? [] as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+
+                $url = (string) ($row['url'] ?? '');
+                if (preg_match('#/pokemon-species/(\d+)/?#', $url, $matches) !== 1) {
+                    continue;
+                }
+
+                $ids[] = (int) $matches[1];
+            }
+
+            $offset += $limit;
+        }
+
+        $ids = array_values(array_unique($ids));
+        sort($ids);
+
+        return $ids;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function getJson(string $path, string $cacheKey): array
+    {
         if ($this->cacheTtlSeconds > 0) {
             /** @var array<string, mixed>|null $cached */
             $cached = Cache::get($cacheKey);
@@ -46,23 +105,23 @@ final class PokeApiClient
                     return $exception instanceof ConnectionException
                         || ($exception instanceof RequestException && $exception->response?->serverError());
                 }, throw: false)
-                ->get("/pokemon/{$externalId}");
+                ->get($path);
         } catch (ConnectionException $exception) {
             throw new CreatureProviderException(
-                "PokéAPI connection failed for pokemon/{$externalId}: {$exception->getMessage()}",
+                "PokéAPI connection failed for {$path}: {$exception->getMessage()}",
                 previous: $exception,
             );
         }
 
         if ($response->clientError()) {
             throw new CreatureProviderException(
-                "PokéAPI returned HTTP {$response->status()} for pokemon/{$externalId}."
+                "PokéAPI returned HTTP {$response->status()} for {$path}."
             );
         }
 
         if ($response->failed()) {
             throw new CreatureProviderException(
-                "PokéAPI request failed with HTTP {$response->status()} for pokemon/{$externalId}."
+                "PokéAPI request failed with HTTP {$response->status()} for {$path}."
             );
         }
 
@@ -71,7 +130,7 @@ final class PokeApiClient
 
         if (! is_array($payload)) {
             throw new CreatureProviderException(
-                "PokéAPI returned a non-JSON payload for pokemon/{$externalId}."
+                "PokéAPI returned a non-JSON payload for {$path}."
             );
         }
 
