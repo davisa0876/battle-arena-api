@@ -119,6 +119,78 @@ class CreatureCatalogApiTest extends TestCase
             ->assertJsonValidationErrors(['per_page', 'type']);
     }
 
+    public function test_per_page_of_fifty_is_accepted(): void
+    {
+        $this->getJson('/api/creatures?per_page=50')
+            ->assertOk()
+            ->assertJsonPath('meta.per_page', 50);
+    }
+
+    public function test_per_page_of_fifty_one_is_rejected(): void
+    {
+        $this->getJson('/api/creatures?per_page=51')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['per_page']);
+    }
+
+    public function test_per_page_of_zero_is_rejected(): void
+    {
+        $this->getJson('/api/creatures?per_page=0')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['per_page']);
+    }
+
+    public function test_page_below_one_is_rejected(): void
+    {
+        $this->getJson('/api/creatures?page=0')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['page']);
+    }
+
+    public function test_catalog_combined_search_and_type_filter(): void
+    {
+        $fire = CreatureType::factory()->create(['name' => 'Fire', 'slug' => 'fire']);
+        $water = CreatureType::factory()->create(['name' => 'Water', 'slug' => 'water']);
+
+        $drake = Creature::factory()->create(['name' => 'Flame Drake', 'slug' => 'flame-drake']);
+        $eel = Creature::factory()->create(['name' => 'Flame Eel', 'slug' => 'flame-eel']);
+        $fox = Creature::factory()->create(['name' => 'Ember Fox', 'slug' => 'ember-fox']);
+
+        $drake->types()->attach($fire->id, ['slot' => 1]);
+        $eel->types()->attach($water->id, ['slot' => 1]);
+        $fox->types()->attach($fire->id, ['slot' => 1]);
+
+        $this->getJson('/api/creatures?search=flame&type=fire')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.slug', 'flame-drake')
+            ->assertJsonPath('meta.total', 1);
+    }
+
+    public function test_catalog_second_page_returns_remaining_items(): void
+    {
+        foreach (['Alpha', 'Beta', 'Gamma'] as $name) {
+            Creature::factory()->create(['name' => $name, 'slug' => strtolower($name)]);
+        }
+
+        $this->getJson('/api/creatures?per_page=2&page=2')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.slug', 'gamma')
+            ->assertJsonPath('meta.current_page', 2)
+            ->assertJsonPath('meta.last_page', 2);
+    }
+
+    public function test_catalog_list_items_do_not_expose_provider_fields(): void
+    {
+        Creature::factory()->create(['name' => 'Alpha', 'slug' => 'alpha']);
+
+        $this->getJson('/api/creatures')
+            ->assertOk()
+            ->assertJsonMissingPath('data.0.provider')
+            ->assertJsonMissingPath('data.0.external_id');
+    }
+
     public function test_creature_types_endpoint(): void
     {
         CreatureType::factory()->create(['name' => 'Water', 'slug' => 'water']);

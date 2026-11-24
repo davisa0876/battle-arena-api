@@ -159,6 +159,10 @@ final class CreatureImportService
             $sync[$creatureType->id] = ['slot' => $type['slot']];
         }
 
-        $creature->types()->sync($sync);
+        // Replace rather than sync(): sync() updates/attaches rows one by one, which can
+        // transiently violate unique(creature_id, slot) when types swap slots.
+        // Callers run inside a transaction, so the replacement is atomic.
+        $creature->types()->detach();
+        $creature->types()->attach($sync);
     }
 }

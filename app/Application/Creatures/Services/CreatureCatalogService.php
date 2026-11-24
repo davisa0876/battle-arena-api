@@ -32,8 +32,10 @@ final class CreatureCatalogService
         $search = trim((string) ($filters['search'] ?? ''));
         if ($search !== '') {
             // Portable case-insensitive match (PostgreSQL + SQLite tests).
+            // The explicit ESCAPE clause is required because SQLite has no default
+            // LIKE escape character (PostgreSQL defaults to backslash).
             $query->whereRaw(
-                'LOWER(name) LIKE ?',
+                "LOWER(name) LIKE ? ESCAPE '\\'",
                 ['%'.mb_strtolower($this->escapeLike($search)).'%']
             );
         }
