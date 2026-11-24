@@ -1,0 +1,12 @@
+---
+description: API testing standards
+globs: tests/**/*.php
+alwaysApply: false
+---
+
+# Testing
+
+- Feature tests use SQLite in memory. Keep `phpunit.xml` `<server>` DB overrides so Compose env cannot wipe Postgres.
+- Mock PokéAPI with `Http::fake` + fixtures. No live upstream calls in CI/tests.
+- Cover import idempotency, image mapping/fallback, locale negotiation, validation errors, 404s.
+- Never weaken assertions to force green builds.

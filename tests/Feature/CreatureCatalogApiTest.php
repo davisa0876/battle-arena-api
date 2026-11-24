@@ -58,6 +58,7 @@ class CreatureCatalogApiTest extends TestCase
     public function test_creature_detail_returns_base_stats(): void
     {
         $type = CreatureType::factory()->create(['name' => 'Grass', 'slug' => 'grass']);
+        $imageUrl = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1.png';
         $creature = Creature::factory()->create([
             'name' => 'Leaf Cub',
             'slug' => 'leaf-cub',
@@ -65,7 +66,7 @@ class CreatureCatalogApiTest extends TestCase
             'base_attack' => 60,
             'height_cm' => 80,
             'weight_g' => 12000,
-            'image_ref' => null,
+            'image_ref' => $imageUrl,
         ]);
         $creature->types()->attach($type->id, ['slot' => 1]);
 
@@ -75,6 +76,8 @@ class CreatureCatalogApiTest extends TestCase
             ->assertJsonPath('data.slug', 'leaf-cub')
             ->assertJsonPath('data.height_cm', 80)
             ->assertJsonPath('data.weight_g', 12000)
+            ->assertJsonPath('data.image_ref', $imageUrl)
+            ->assertJsonPath('data.image_url', $imageUrl)
             ->assertJsonPath('data.base_stats.hp', 55)
             ->assertJsonPath('data.base_stats.attack', 60)
             ->assertJsonPath('data.types.0.slug', 'grass')
@@ -86,7 +89,27 @@ class CreatureCatalogApiTest extends TestCase
     {
         $this->getJson('/api/creatures/does-not-exist')
             ->assertNotFound()
-            ->assertJsonPath('message', 'Creature not found.');
+            ->assertJsonPath('message', 'Creature not found.')
+            ->assertHeader('Content-Language', 'en')
+            ->assertHeader('Vary', 'Accept-Language');
+    }
+
+    public function test_missing_creature_message_is_localized(): void
+    {
+        $this->withHeaders(['Accept-Language' => 'pt-BR,pt;q=0.9,en;q=0.8'])
+            ->getJson('/api/creatures/does-not-exist')
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Criatura não encontrada.')
+            ->assertHeader('Content-Language', 'pt-BR');
+    }
+
+    public function test_unsupported_locale_falls_back_to_english(): void
+    {
+        $this->withHeaders(['Accept-Language' => 'de-DE,de;q=0.9'])
+            ->getJson('/api/creatures/does-not-exist')
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Creature not found.')
+            ->assertHeader('Content-Language', 'en');
     }
 
     public function test_invalid_query_validation(): void

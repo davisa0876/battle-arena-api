@@ -1,0 +1,17 @@
+---
+description: Laravel API localization rules
+globs: "{app/Http/**/*.php,lang/**/*.php,app/Console/**/*.php}"
+alwaysApply: false
+---
+
+# Backend i18n
+
+- Add keys under `lang/{en,fr,pt_BR,it,es}/` with parity across locales.
+- External locale is `pt-BR`; Laravel locale is `pt_BR`.
+- Resolve locale via `SetLocale` + `Accept-Language` only for the request.
+- Return `Content-Language` and `Vary: Accept-Language` on API responses.
+- Never translate JSON property names.
+
+```php
+return response()->json(['message' => __('api.creature_not_found')], 404);
+```

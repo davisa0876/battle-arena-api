@@ -1,0 +1,14 @@
+---
+description: Core Battle Arena API project standards
+alwaysApply: true
+---
+
+# Battle Arena API Standards
+
+- Keep this repository independent. Do not convert to a monorepo.
+- Prefer incremental fixes over rewrites. Preserve working catalog endpoints.
+- Never hardcode secrets. Use `.env.example` for documented keys only.
+- Do not claim tests passed without running them.
+- User-facing strings go through Laravel `__()` / lang files for `en`, `fr`, `pt_BR`, `it`, `es`.
+- Stable JSON field names stay English (`base_stats.attack`, `image_url`).
+- Do not use destructive DB commands (`migrate:fresh`, volume deletes) unless explicitly requested.

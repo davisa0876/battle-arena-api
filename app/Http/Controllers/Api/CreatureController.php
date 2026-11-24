@@ -28,7 +28,7 @@ class CreatureController extends Controller
 
         if ($creature === null) {
             return response()->json([
-                'message' => 'Creature not found.',
+                'message' => __('api.creature_not_found'),
             ], 404);
         }
 

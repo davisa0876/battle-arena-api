@@ -33,8 +33,39 @@ class CreatureImportTest extends TestCase
         $this->assertSame(45, $bulbasaur->base_hp);
         $this->assertSame(70, $bulbasaur->height_cm);
         $this->assertSame(6900, $bulbasaur->weight_g);
+        $this->assertSame(
+            'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1.png',
+            $bulbasaur->image_ref,
+        );
         $this->assertSame(['grass', 'poison'], $bulbasaur->types->pluck('slug')->all());
         $this->assertSame([1, 2], $bulbasaur->types->pluck('pivot.slot')->all());
+    }
+
+    public function test_import_backfills_image_without_clearing_existing_on_null(): void
+    {
+        $existing = Creature::factory()->create([
+            'provider' => 'pokeapi',
+            'external_id' => 1,
+            'name' => 'Bulbasaur',
+            'slug' => 'bulbasaur',
+            'image_ref' => 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1.png',
+        ]);
+
+        $payload = $this->fixture('pokemon_1.json');
+        $payload['sprites'] = ['front_default' => null, 'other' => []];
+
+        Http::fake([
+            'https://pokeapi.co/api/v2/pokemon/1' => Http::response($payload, 200),
+        ]);
+
+        $summary = $this->app->make(CreatureImportService::class)->import([1]);
+
+        $this->assertSame(1, $summary['updated']);
+        $existing->refresh();
+        $this->assertSame(
+            'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1.png',
+            $existing->image_ref,
+        );
     }
 
     public function test_import_is_idempotent(): void

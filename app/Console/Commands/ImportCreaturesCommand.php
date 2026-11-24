@@ -25,13 +25,13 @@ class ImportCreaturesCommand extends Command
             ), static fn (int $id): bool => $id > 0));
 
             if ($externalIds === []) {
-                $this->error('No valid external IDs were provided.');
+                $this->error(__('creatures.import_invalid_ids'));
 
                 return self::FAILURE;
             }
         }
 
-        $this->info('Importing creatures into the local catalog...');
+        $this->info(__('creatures.import_started'));
         $this->line(
             'IDs: '.implode(
                 ', ',
@@ -62,12 +62,12 @@ class ImportCreaturesCommand extends Command
         }
 
         if ($summary['imported'] === 0 && $summary['updated'] === 0) {
-            $this->error('No creatures were imported or updated.');
+            $this->error(__('creatures.import_none'));
 
             return self::FAILURE;
         }
 
-        $this->info('Creature import finished.');
+        $this->info(__('creatures.import_finished'));
 
         return self::SUCCESS;
     }

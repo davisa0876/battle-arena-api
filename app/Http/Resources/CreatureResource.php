@@ -15,13 +15,18 @@ class CreatureResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $imageUrl = $this->image_ref;
+
         return [
             'id' => $this->id,
             'name' => $this->name,
             'slug' => $this->slug,
             'height_cm' => $this->height_cm,
             'weight_g' => $this->weight_g,
-            'image_ref' => $this->image_ref,
+            // Compatibility for existing clients.
+            'image_ref' => $imageUrl,
+            // Explicit public field for display URLs persisted in PostgreSQL.
+            'image_url' => $imageUrl,
             'types' => CreatureTypeResource::collection($this->whenLoaded('types')),
             'base_stats' => [
                 'hp' => $this->base_hp,

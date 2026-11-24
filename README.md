@@ -184,9 +184,31 @@ Import/provider tests use `Http::fake` fixtures under `tests/Fixtures/pokeapi`. 
 
 `phpunit.xml` overrides both `<env force="true">` and `<server>` for `DB_*`. Compose injects database settings into `$_SERVER`, and Laravel reads `$_SERVER` before `$_ENV`, so server overrides are required to keep `RefreshDatabase` on SQLite instead of wiping local PostgreSQL.
 
+## Images
+
+Import maps PokéAPI sprite fields into `creatures.image_ref` with fallback order:
+
+1. `sprites.other.official-artwork.front_default`
+2. `sprites.other.home.front_default`
+3. `sprites.front_default`
+4. `null` (clients show a neutral placeholder)
+
+Only trusted HTTPS hosts are accepted (`raw.githubusercontent.com`). API responses expose both `image_url` and `image_ref`. Re-running `php artisan creatures:import` backfills images and never clears a valid stored URL with null.
+
+These remote URLs are **demo-only** third-party artwork. Do not commit sprite binaries or upload them to S3.
+
+## API localization
+
+`SetLocale` middleware reads `Accept-Language` (`en`, `fr`, `pt-BR`, `it`, `es`), sets Laravel locale for the request, and returns `Content-Language` + `Vary: Accept-Language`.
+
+Lang files: `lang/{en,fr,pt_BR,it,es}/`.
+
+JSON field names stay English. Creature **names** currently use the canonical imported name (not per-locale DB rows) in this phase.
+
 ## Known limitations
 
 - No authentication, owned creatures, battles, moves, or evolution
-- Display art uses client-side neutral placeholders
+- Creature/type names are not yet domain-localized; UI chrome is fully translated on clients
 - Alternate forms / species grouping not modeled yet
 - Storage profile is optional and unused by catalog endpoints
+- Persistent Cursor rules live in `.cursor/rules/`

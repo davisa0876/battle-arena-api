@@ -119,14 +119,20 @@ final class CreatureImportService
                 'base_special_attack' => $payload->baseSpecialAttack,
                 'base_special_defense' => $payload->baseSpecialDefense,
                 'base_speed' => $payload->baseSpeed,
-                'image_ref' => $payload->imageRef,
             ];
 
             if ($existing === null) {
+                $attributes['image_ref'] = $payload->imageRef;
                 $creature = Creature::query()->create($attributes);
                 $this->syncTypes($creature, $payload->types);
 
                 return 'imported';
+            }
+
+            // Never replace a valid stored image with null from incomplete upstream data.
+            // Allow upgrades when a newer trusted URL is provided.
+            if ($payload->imageRef !== null) {
+                $attributes['image_ref'] = $payload->imageRef;
             }
 
             $existing->fill($attributes);

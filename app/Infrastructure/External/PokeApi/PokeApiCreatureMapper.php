@@ -9,6 +9,15 @@ final class PokeApiCreatureMapper
 {
     private const PROVIDER = 'pokeapi';
 
+    /**
+     * Trusted hosts for provider artwork URLs (demo/dev only).
+     *
+     * @var list<string>
+     */
+    private const TRUSTED_IMAGE_HOSTS = [
+        'raw.githubusercontent.com',
+    ];
+
     private const STAT_MAP = [
         'hp' => 'baseHp',
         'attack' => 'baseAttack',
@@ -87,8 +96,60 @@ final class PokeApiCreatureMapper
             baseSpecialDefense: $stats['baseSpecialDefense'],
             baseSpeed: $stats['baseSpeed'],
             types: $types,
-            // Do not persist copyrighted sprite URLs as display assets.
-            imageRef: null,
+            imageRef: $this->resolveImageUrl($payload),
         );
+    }
+
+    /**
+     * Prefer official artwork, then home, then default sprite.
+     * Never invent a URL from the creature ID when the payload omits sprites.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function resolveImageUrl(array $payload): ?string
+    {
+        $candidates = [
+            data_get($payload, 'sprites.other.official-artwork.front_default'),
+            data_get($payload, 'sprites.other.home.front_default'),
+            data_get($payload, 'sprites.front_default'),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (! is_string($candidate)) {
+                continue;
+            }
+
+            $url = trim($candidate);
+            if ($url !== '' && $this->isTrustedImageUrl($url)) {
+                return $url;
+            }
+        }
+
+        return null;
+    }
+
+    private function isTrustedImageUrl(string $url): bool
+    {
+        $parts = parse_url($url);
+        if (! is_array($parts)) {
+            return false;
+        }
+
+        if (($parts['scheme'] ?? null) !== 'https') {
+            return false;
+        }
+
+        $host = strtolower((string) ($parts['host'] ?? ''));
+        if ($host === '') {
+            return false;
+        }
+
+        foreach (self::TRUSTED_IMAGE_HOSTS as $trustedHost) {
+            if ($host === $trustedHost || str_ends_with($host, '.'.$trustedHost)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

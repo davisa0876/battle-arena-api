@@ -1,0 +1,23 @@
+---
+description: Thin controllers and layered architecture
+globs: app/**/*.php
+alwaysApply: false
+---
+
+# Backend Architecture
+
+- Controllers: request in → FormRequest/service → Resource/response. No provider HTTP or long workflows.
+- Application services own import/catalog workflows and transactions.
+- Domain models own persistence shape and relationships.
+- Infrastructure owns PokéAPI HTTP, mapping, retries, trusted URL checks.
+- Do not add Repository wrappers that only proxy Eloquent.
+- Prefer constructor DI over facades inside new application services.
+
+```php
+// ❌ BAD in controller
+Http::get('https://pokeapi.co/...')->json();
+
+// ✅ GOOD
+$creature = $this->catalog->findBySlug($slug);
+return new CreatureResource($creature);
+```

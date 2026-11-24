@@ -1,0 +1,13 @@
+---
+description: API Resources and public contracts
+globs: "{app/Http/Resources/**/*.php,routes/api.php}"
+alwaysApply: false
+---
+
+# API Resources
+
+- Public endpoints return Resources, never raw Eloquent models.
+- Keep catalog read-only/public until auth is intentionally added.
+- Expose `image_url` for display; keep `image_ref` for compatibility when present.
+- Do not leak `provider` / `external_id` in public catalog JSON.
+- Eager-load relations in services/controllers before Resource collections.
