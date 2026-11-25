@@ -207,16 +207,16 @@ JSON field names stay English. Creature **names** currently use the canonical im
 
 ## Phase 3: accounts, profiles, collection
 
-Full decisions live in `docs/PHASE3_AUTH_AND_DATA_MODEL.md`; the HTTP contract is in `docs/openapi.yaml`.
+Full decisions live in `docs/PHASE3_AUTH_AND_DATA_MODEL.md`; the HTTP contract is built from Horus-style OpenAPI fragments.
 
 ## Swagger (OpenAPI UI)
 
-- Source of truth: `docs/openapi.yaml`
-- Sync into Swagger UI storage: `php artisan openapi:sync`
-- UI: [http://localhost:8000/api/documentation](http://localhost:8000/api/documentation)
-- Package: `darkaonline/l5-swagger` (Bearer sanctum security scheme enabled in the UI)
+- Source of truth (Horus-style): `resources/docs/swagger/{paths,components}/*.json`
+- Build/publish: `php artisan openapi:sync` → `docs/openapi.yaml`, `docs/openapi.json`, `storage/api-docs/`
+- Live JSON: `GET /api/swagger.json`
+- UI: [http://localhost:8000/api/documentation](http://localhost:8000/api/documentation) (`darkaonline/l5-swagger`, Sanctum bearer enabled)
 
-When you change request/response shapes, update `docs/openapi.yaml` and run `openapi:sync` again.
+When you change request/response shapes, edit the JSON fragments under `resources/docs/swagger/` and run `openapi:sync` again.
 
 ## Telescope
 
