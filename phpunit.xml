@@ -31,6 +31,11 @@
         <server name="SESSION_DRIVER" value="array"/>
         <server name="MAIL_MAILER" value="array"/>
         <server name="FILESYSTEM_DISK" value="local"/>
+        <server name="PROFILES_DISK" value="profiles_local"/>
+        <server name="SANCTUM_STATEFUL_DOMAINS" value="localhost:3000,127.0.0.1:3000"/>
+        <server name="FRONTEND_URL" value="http://localhost:3000"/>
+        <server name="SESSION_DOMAIN" value="null"/>
+        <server name="MAIL_MAILER" value="array"/>
         <server name="POKEAPI_REQUEST_DELAY_MS" value="0"/>
         <server name="POKEAPI_CACHE_TTL_SECONDS" value="0"/>
 

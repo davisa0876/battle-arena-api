@@ -2,6 +2,8 @@
 
 namespace Database\Factories;
 
+use App\Domain\Players\Models\PlayerProfile;
+use App\Domain\Progression\Models\PlayerProgress;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -31,6 +33,20 @@ class UserFactory extends Factory
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
         ];
+    }
+
+    /**
+     * Create the player profile and level-1 progress rows that registration normally creates.
+     *
+     * @param  array<string, mixed>  $profile
+     * @param  array<string, mixed>  $progress
+     */
+    public function withPlayer(array $profile = [], array $progress = []): static
+    {
+        return $this->afterCreating(function (User $user) use ($profile, $progress): void {
+            PlayerProfile::factory()->create(array_merge(['user_id' => $user->id, 'display_name' => $user->name], $profile));
+            PlayerProgress::factory()->create(array_merge(['user_id' => $user->id], $progress));
+        });
     }
 
     /**

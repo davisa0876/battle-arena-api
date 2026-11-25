@@ -181,8 +181,8 @@ return [
     */
 
     'custom' => [
-        'attribute-name' => [
-            'rule-name' => 'custom-message',
+        'handle' => [
+            'regex' => 'El campo :attribute solo puede contener letras minúsculas, números y guiones bajos.',
         ],
     ],
 
@@ -198,6 +198,18 @@ return [
     */
 
     'attributes' => [
+        'handle' => 'identificador',
+        'display_name' => 'nombre para mostrar',
+        'bio' => 'biografía',
+        'email' => 'correo electrónico',
+        'password' => 'contraseña',
+        'password_confirmation' => 'confirmación de contraseña',
+        'current_password' => 'contraseña actual',
+        'avatar' => 'avatar',
+        'creature_slug' => 'criatura inicial',
+        'device_name' => 'nombre del dispositivo',
+        'collection_is_public' => 'visibilidad de la colección',
+        'token' => 'token',
         'search' => 'búsqueda',
         'type' => 'tipo',
         'page' => 'página',

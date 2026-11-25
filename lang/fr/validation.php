@@ -181,8 +181,8 @@ return [
     */
 
     'custom' => [
-        'attribute-name' => [
-            'rule-name' => 'custom-message',
+        'handle' => [
+            'regex' => 'Le champ :attribute ne peut contenir que des lettres minuscules, des chiffres et des tirets bas.',
         ],
     ],
 
@@ -198,6 +198,18 @@ return [
     */
 
     'attributes' => [
+        'handle' => 'pseudo',
+        'display_name' => 'nom affiché',
+        'bio' => 'biographie',
+        'email' => 'e-mail',
+        'password' => 'mot de passe',
+        'password_confirmation' => 'confirmation du mot de passe',
+        'current_password' => 'mot de passe actuel',
+        'avatar' => 'avatar',
+        'creature_slug' => 'créature de départ',
+        'device_name' => 'nom de l\'appareil',
+        'collection_is_public' => 'visibilité de la collection',
+        'token' => 'jeton',
         'search' => 'recherche',
         'type' => 'type',
         'page' => 'page',

@@ -1,8 +1,12 @@
 <?php
 
+use App\Http\Middleware\SetLocale;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Middleware\HandleCors;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,11 +16,26 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->statefulApi();
+
+        // This is a JSON API: there is no web login page to redirect guests to.
+        $middleware->redirectGuestsTo(static fn (): ?string => null);
+
         $middleware->api(prepend: [
-            \Illuminate\Http\Middleware\HandleCors::class,
-            \App\Http\Middleware\SetLocale::class,
+            HandleCors::class,
+            SetLocale::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->shouldRenderJsonWhen(
+            static fn (Request $request, Throwable $e): bool => $request->is('api/*') || $request->expectsJson()
+        );
+
+        $exceptions->render(static function (AuthenticationException $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json(['message' => __('api.unauthenticated')], 401);
+            }
+
+            return null;
+        });
     })->create();

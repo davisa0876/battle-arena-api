@@ -3,16 +3,20 @@
 namespace App\Providers;
 
 use App\Application\Creatures\Contracts\CreatureCatalogProvider;
+use App\Domain\OwnedCreatures\Models\OwnedCreature;
 use App\Infrastructure\External\PokeApi\PokeApiClient;
 use App\Infrastructure\External\PokeApi\PokeApiCreatureMapper;
 use App\Infrastructure\External\PokeApi\PokeApiCreatureProvider;
+use App\Policies\OwnedCreaturePolicy;
+use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
         $this->app->singleton(PokeApiClient::class, function () {
@@ -33,11 +37,40 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(CreatureCatalogProvider::class, PokeApiCreatureProvider::class);
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
-        //
+        Gate::policy(OwnedCreature::class, OwnedCreaturePolicy::class);
+
+        $this->configureRateLimiting();
+        $this->configureAuthNotifications();
+    }
+
+    private function configureRateLimiting(): void
+    {
+        RateLimiter::for('auth-login', fn (Request $request): Limit => Limit::perMinute((int) config('game.rate_limits.login'))
+            ->by(mb_strtolower((string) $request->input('email')).'|'.$request->ip()));
+
+        RateLimiter::for('auth-register', fn (Request $request): Limit => Limit::perMinute((int) config('game.rate_limits.register'))
+            ->by($request->ip()));
+
+        RateLimiter::for('auth-recovery', fn (Request $request): Limit => Limit::perMinute((int) config('game.rate_limits.password_recovery'))
+            ->by($request->ip()));
+
+        RateLimiter::for('auth-verification', fn (Request $request): Limit => Limit::perMinute((int) config('game.rate_limits.email_verification'))
+            ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
+    }
+
+    /**
+     * Verification mails keep Laravel's signed API URL (works for web and mobile; the endpoint
+     * redirects browsers to the frontend). Reset links point at the frontend reset screen.
+     */
+    private function configureAuthNotifications(): void
+    {
+        ResetPassword::createUrlUsing(function (object $notifiable, string $token): string {
+            return config('game.frontend.reset_password_url').'?'.http_build_query([
+                'token' => $token,
+                'email' => $notifiable->getEmailForPasswordReset(),
+            ]);
+        });
     }
 }

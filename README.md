@@ -205,9 +205,72 @@ Lang files: `lang/{en,fr,pt_BR,it,es}/`.
 
 JSON field names stay English. Creature **names** currently use the canonical imported name (not per-locale DB rows) in this phase.
 
+## Phase 3: accounts, profiles, collection
+
+Full decisions live in `docs/PHASE3_AUTH_AND_DATA_MODEL.md`; the HTTP contract is in `docs/openapi.yaml`.
+
+### Endpoints
+
+| Method | Path | Auth | Notes |
+|--------|------|------|-------|
+| `POST` | `/api/register` | public, throttled | Creates user + profile + level-1 progress in one transaction |
+| `POST` | `/api/login` | public, throttled | Session (web) or token (when `device_name` is sent) |
+| `POST` | `/api/logout` | sanctum | Revokes the current token or ends the session |
+| `POST` | `/api/forgot-password`, `/api/reset-password` | public, throttled | Reset link points at `FRONTEND_PASSWORD_RESET_URL` |
+| `GET` | `/api/email/verify/{id}/{hash}` | signed URL | Verifies; redirects browsers to `FRONTEND_EMAIL_VERIFIED_URL?status=verified` |
+| `POST` | `/api/email/verification-notification` | sanctum | Resend verification email |
+| `GET` | `/api/me` | sanctum | Account, profile, trainer progress, onboarding state |
+| `PATCH` | `/api/me/profile` | sanctum | `handle`, `display_name`, `bio`, `collection_is_public` |
+| `PATCH` | `/api/me/password` | sanctum | Revokes other tokens |
+| `POST` / `DELETE` | `/api/me/avatar` | sanctum | Multipart field `avatar` (JPG/PNG/WebP) |
+| `GET` | `/api/avatars/{userId}` | public | Streams the avatar from the private disk |
+| `GET` | `/api/players/{handle}` | public | Public profile; collection only if `collection_is_public` |
+| `GET` | `/api/me/creatures`, `/api/me/creatures/{id}` | sanctum | Owned creatures (evolutions listed but locked) |
+| `POST` | `/api/me/starter` | sanctum | Body `creature_slug`; once per trainer (409 afterwards) |
+| `PATCH` | `/api/me/creatures/{id}/select` | sanctum | Makes the creature the single active one |
+| `GET` | `/api/game/rules` | public | Versioned rules, feature flags, XP curve |
+
+There is intentionally **no HTTP endpoint that grants XP**.
+
+### Authentication flows
+
+- **Web SPA (cookie session).** Call `GET /sanctum/csrf-cookie`, then `POST /api/login` (or `/api/register`) **without** `device_name`, with `credentials: 'include'` and the `X-XSRF-TOKEN` header. The browser origin must be listed in `SANCTUM_STATEFUL_DOMAINS` and `FRONTEND_URL` (CORS, `supports_credentials=true`). The session id is regenerated on login and invalidated on logout. No bearer token is ever returned to the web.
+- **Mobile (bearer token).** Send `device_name` (for example `"Pixel 9"`). The response `meta.token` is a Sanctum personal access token; send it as `Authorization: Bearer <token>` and keep it in SecureStore. `POST /api/logout` revokes only that device's token. Mobile requests never rely on cookies.
+- Routes under `auth:sanctum` accept either mechanism. Non-browser clients that omit `device_name` get a `422`.
+- Login, register and password recovery are rate limited (`config/game.php` `rate_limits`).
+- Password reset revokes every personal access token; changing the password revokes all other tokens.
+
+### Email (Mailpit)
+
+Compose runs Mailpit (SMTP `mailpit:1025`, UI http://localhost:8025). `.env.example` already points `MAIL_*` at it. Registration and `POST /api/email/verification-notification` send Laravel's built-in `VerifyEmail` notification containing a **signed API URL** (`/api/email/verify/{id}/{hash}?expires=&signature=`). The same link works on web and mobile: browsers are redirected to `FRONTEND_EMAIL_VERIFIED_URL`, API clients (`Accept: application/json`) get JSON. `ResetPassword` links point to `FRONTEND_PASSWORD_RESET_URL?token=&email=`. Verification is not required to use the API yet. Make sure `APP_URL` is reachable from the device that opens the email.
+
+### Avatars
+
+- Upload validation: JPG/PNG/WebP only (SVG rejected), at most 2048 KB, 32-1024 px per side (`config/game.php` `avatar`).
+- `AvatarImageProcessor` (GD) decodes, center-crops to a square, resizes to 512 px and re-encodes (WebP, or JPEG when WebP is unavailable), which strips metadata. The original bytes are never stored. Objects get random names under `avatars/`.
+- Disk is chosen by `PROFILES_DISK`:
+  - `profiles_local` (default): `storage/app/profiles`, private, backed by the `api_profiles` Docker volume.
+  - `profiles`: private S3 bucket (RustFS) when `docker compose --profile storage up -d` is running.
+- Clients never get storage credentials; they load `profile.avatar_url`, which is `GET /api/avatars/{userId}`. Avatars are treated as profile photos (visible to anyone holding the URL); profiles never expose email.
+- The Docker image needs the `gd` extension. Rebuild after pulling the Dockerfile change: `docker compose build api`. Without GD, uploads return `503`.
+
+### Data model and commands
+
+New tables: `player_profiles`, `player_progress`, `player_xp_events`, `owned_creatures`, `creature_evolution_history` (all additive; handles are stored lowercase so a plain unique index is case-insensitive). "One active creature per trainer" is enforced by a unique `owned_creatures.active_user_id` column (equals `user_id` while active, otherwise `NULL`), working on both SQLite and PostgreSQL, plus a transaction with row locks in the services.
+
+```bash
+# Apply the new migrations (never use migrate:fresh on shared data)
+docker compose exec api php artisan migrate
+docker compose exec api php artisan creatures:import      # starters need the catalog
+
+# Local/testing only: award trainer XP (user = id, email or handle)
+docker compose exec api php artisan trainer:award-xp misty 250 --source=dev --key=my-key
+```
+
+XP needed to advance from `level` to `level + 1` is `ceil(100 * 1.5 ^ (level - 1))` (100, 150, 225, 338, ...). Starters are limited to the stage-1 slugs in `config/game.php` and must be base forms in the catalog.
 ## Known limitations
 
-- No authentication, owned creatures, battles, moves, or evolution
+- No battles, moves, or evolution execution (evolutions are shown locked)
 - Creature/type names are not yet domain-localized; UI chrome is fully translated on clients
 - Alternate forms / species grouping not modeled yet
 - Storage profile is optional and unused by catalog endpoints

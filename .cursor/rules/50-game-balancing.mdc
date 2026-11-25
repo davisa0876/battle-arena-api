@@ -1,0 +1,11 @@
+---
+description: Game balancing ownership (backend is authoritative)
+alwaysApply: true
+---
+
+# Game Balancing
+
+- Game balancing rules must live in backend policies/configuration (`config/game.php` + domain policies). Frontends may display them but must never become authoritative.
+- Expose every rule a client needs through `GET /api/game/rules`; bump `rules_version` when its shape or values change.
+- Trainer level (account progression), creature `evolution_stage` (catalog property: 1/2/3) and owned-creature level (per collection entry) are three separate concepts. Never mix, derive or alias one from another.
+- Selection allowances are keyed by the ORIGINAL `evolution_stage` at acquisition (ledger), never by the creature's current stage.

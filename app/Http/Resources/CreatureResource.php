@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Application\Creatures\Services\CatalogSelectionPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -16,6 +17,7 @@ class CreatureResource extends JsonResource
     public function toArray(Request $request): array
     {
         $imageUrl = $this->image_ref;
+        $selection = app(CatalogSelectionPresenter::class)->forCreature($request, $this->resource);
 
         return [
             'id' => $this->id,
@@ -28,6 +30,11 @@ class CreatureResource extends JsonResource
             // Explicit public field for display URLs persisted in PostgreSQL.
             'image_url' => $imageUrl,
             'evolution_stage' => (int) ($this->evolution_stage ?? 1),
+            // Ownership / selection eligibility — authoritative for catalog UI buttons.
+            'is_owned' => $selection['selection_blocked_reason'] === 'owned',
+            'can_select' => $selection['can_select'],
+            'selection_action' => $selection['selection_action'],
+            'selection_blocked_reason' => $selection['selection_blocked_reason'],
             'types' => CreatureTypeResource::collection($this->whenLoaded('types')),
             'base_stats' => [
                 'hp' => $this->base_hp,

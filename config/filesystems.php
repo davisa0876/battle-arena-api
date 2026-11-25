@@ -47,6 +47,16 @@ return [
             'report' => false,
         ],
 
+        // Private local avatar storage (default). Mounted as a Docker volume in Compose.
+        'profiles_local' => [
+            'driver' => 'local',
+            'root' => storage_path('app/profiles'),
+            'visibility' => 'private',
+            'serve' => false,
+            'throw' => true,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
@@ -63,6 +73,9 @@ return [
         ],
 
         /*
+         | Selected by PROFILES_DISK=profiles (see config/game.php avatar.disk); otherwise
+         | avatars use the always-available `profiles_local` disk.
+         |
          | Profile photos live under profiles/ in the S3-compatible bucket (RustFS locally).
          | Objects are private. Public avatar delivery can be added later via:
          | - short-lived signed GetObject URLs, or

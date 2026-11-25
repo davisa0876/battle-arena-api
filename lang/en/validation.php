@@ -181,8 +181,8 @@ return [
     */
 
     'custom' => [
-        'attribute-name' => [
-            'rule-name' => 'custom-message',
+        'handle' => [
+            'regex' => 'The :attribute may only contain lowercase letters, numbers and underscores.',
         ],
     ],
 
@@ -198,6 +198,19 @@ return [
     */
 
     'attributes' => [
+        'handle' => 'handle',
+        'display_name' => 'display name',
+        'bio' => 'bio',
+        'email' => 'email',
+        'password' => 'password',
+        'password_confirmation' => 'password confirmation',
+        'current_password' => 'current password',
+        'avatar' => 'avatar',
+        'creature_slug' => 'creature',
+        'idempotency_key' => 'idempotency key',
+        'device_name' => 'device name',
+        'collection_is_public' => 'public collection setting',
+        'token' => 'token',
         'search' => 'search',
         'type' => 'type',
         'page' => 'page',
