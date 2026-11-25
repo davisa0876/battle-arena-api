@@ -1,0 +1,126 @@
+{
+  "PveAttackRequest": {
+    "type": "object",
+    "required": ["expected_version"],
+    "properties": {
+      "move_id": { "type": "integer", "minimum": 1, "nullable": true },
+      "basic_strike": { "type": "boolean", "description": "Only when no equipped move has PP left." },
+      "recover": {
+        "type": "boolean",
+        "description": "Recover +15 stamina and skip the attack when moves still have PP but none are affordable."
+      },
+      "expected_version": { "type": "integer", "minimum": 1 },
+      "idempotency_key": { "type": "string", "maxLength": 120 }
+    },
+    "description": "Provide exactly one of move_id, basic_strike, or recover."
+  },
+  "PveRecord": {
+    "type": "object",
+    "properties": {
+      "wins": { "type": "integer" },
+      "losses": { "type": "integer" },
+      "give_ups": { "type": "integer" }
+    }
+  },
+  "PveReward": {
+    "type": "object",
+    "nullable": true,
+    "properties": {
+      "xp_awarded": { "type": "integer" },
+      "trainer_levels_gained": { "type": "integer" },
+      "duplicate": { "type": "boolean" }
+    }
+  },
+  "PveResourceBar": {
+    "type": "object",
+    "properties": {
+      "current": { "type": "integer" },
+      "max": { "type": "integer" }
+    }
+  },
+  "PveBattleMove": {
+    "type": "object",
+    "properties": {
+      "id": { "type": "integer", "nullable": true },
+      "slug": { "type": "string" },
+      "name": { "type": "string" },
+      "power": { "type": "integer" },
+      "accuracy": { "type": "integer" },
+      "type": { "type": "string" },
+      "damage_class": { "type": "string" },
+      "pp": { "$ref": "#/components/schemas/PveResourceBar" },
+      "stamina_cost": { "type": "integer" },
+      "can_use": { "type": "boolean" }
+    }
+  },
+  "PveCombatant": {
+    "type": "object",
+    "properties": {
+      "owned_creature_id": { "type": "integer", "nullable": true },
+      "name": { "type": "string" },
+      "slug": { "type": "string" },
+      "image_ref": { "type": "string", "nullable": true },
+      "cry_latest_url": { "type": "string", "nullable": true },
+      "cry_legacy_url": { "type": "string", "nullable": true },
+      "cry_url": { "type": "string", "nullable": true },
+      "level": { "type": "integer" },
+      "types": { "type": "array", "items": { "type": "string" } },
+      "hp": { "$ref": "#/components/schemas/PveResourceBar" },
+      "stamina": { "$ref": "#/components/schemas/PveResourceBar" },
+      "moves": {
+        "type": "array",
+        "items": { "$ref": "#/components/schemas/PveBattleMove" }
+      },
+      "intent": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "type_slug": { "type": "string" },
+          "damage_class": { "type": "string" },
+          "is_basic_strike": { "type": "boolean" }
+        }
+      }
+    }
+  },
+  "PveBattle": {
+    "type": "object",
+    "properties": {
+      "id": { "type": "string", "format": "uuid" },
+      "mode": { "type": "string", "enum": ["pve"] },
+      "status": { "type": "string" },
+      "phase": {
+        "type": "string",
+        "enum": ["awaiting_player_attack", "awaiting_player_defense", "finished"]
+      },
+      "round": { "type": "integer" },
+      "version": { "type": "integer" },
+      "rules_version": { "type": "string" },
+      "difficulty": { "type": "string" },
+      "outcome": { "type": "string", "enum": ["win", "loss"], "nullable": true },
+      "end_reason": { "type": "string", "enum": ["combat", "abandoned"], "nullable": true },
+      "player": { "$ref": "#/components/schemas/PveCombatant" },
+      "opponent": { "$ref": "#/components/schemas/PveCombatant" },
+      "allowed_actions": {
+        "type": "array",
+        "items": { "type": "string", "enum": ["attack", "defend", "recover"] }
+      },
+      "last_event_sequence": { "type": "integer" },
+      "combat_log": { "type": "array", "items": { "type": "object" } },
+      "record": { "$ref": "#/components/schemas/PveRecord" },
+      "reward": { "$ref": "#/components/schemas/PveReward" }
+    }
+  },
+  "PveActionResponse": {
+    "type": "object",
+    "properties": {
+      "data": {
+        "type": "object",
+        "properties": {
+          "battle": { "$ref": "#/components/schemas/PveBattle" },
+          "events": { "type": "array", "items": { "type": "object" } },
+          "reward": { "$ref": "#/components/schemas/PveReward" }
+        }
+      }
+    }
+  }
+}

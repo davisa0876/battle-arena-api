@@ -5,15 +5,15 @@ namespace App\OpenApi;
 use OpenApi\Attributes as OA;
 
 /**
- * Base OpenAPI document metadata for L5-Swagger.
+ * Base OpenAPI metadata for L5-Swagger discovery.
  *
- * Full path/schema definitions live in docs/openapi.yaml (source of truth).
- * Run `php artisan openapi:sync` after editing that file so Swagger UI picks them up.
+ * Full path/schema definitions live as Horus-style JSON fragments under
+ * resources/docs/swagger/. Run `php artisan openapi:sync` after editing them.
  */
 #[OA\Info(
     version: '3.1.0',
     title: 'Battle Arena API',
-    description: 'Phase 3 contract: accounts, profiles, owned creatures, catalog selection flags and game rules. Prefer docs/openapi.yaml for the full HTTP contract.'
+    description: 'Accounts, profiles, collection, game rules and PvE. Prefer resources/docs/swagger fragments (synced via openapi:sync).'
 )]
 #[OA\Server(url: 'http://localhost:8000', description: 'Local Compose API')]
 #[OA\SecurityScheme(
@@ -28,6 +28,7 @@ use OpenApi\Attributes as OA;
 #[OA\Tag(name: 'Collection', description: 'Owned creatures, starter and acquire')]
 #[OA\Tag(name: 'Game', description: 'Published game rules and feature flags')]
 #[OA\Tag(name: 'Catalog', description: 'Public creature catalog')]
+#[OA\Tag(name: 'PvE', description: 'Solo arena battles')]
 final class OpenApiSpec
 {
 }

@@ -14,12 +14,40 @@ class OpenApiDocsTest extends TestCase
         $this->assertSame(0, $exit);
         $this->assertFileExists(storage_path('api-docs/api-docs.yaml'));
         $this->assertFileExists(storage_path('api-docs/api-docs.json'));
+        $this->assertFileExists(base_path('docs/openapi.yaml'));
+        $this->assertFileExists(base_path('docs/openapi.json'));
 
         $json = json_decode((string) file_get_contents(storage_path('api-docs/api-docs.json')), true);
         $this->assertIsArray($json);
         $this->assertSame('3.0.3', $json['openapi'] ?? null);
         $this->assertSame('Battle Arena API', $json['info']['title'] ?? null);
         $this->assertArrayHasKey('/api/login', $json['paths'] ?? []);
+        $this->assertArrayHasKey('/api/pve/battles', $json['paths'] ?? []);
+        $this->assertArrayHasKey('/api/pve/battles/{battle}/attack', $json['paths'] ?? []);
+        $this->assertArrayHasKey('PveBattle', $json['components']['schemas'] ?? []);
+        $this->assertArrayHasKey('PveAttackRequest', $json['components']['schemas'] ?? []);
+        $this->assertArrayHasKey('recover', $json['components']['schemas']['PveAttackRequest']['properties'] ?? []);
+    }
+
+    public function test_swagger_json_route_returns_merged_horus_style_docs(): void
+    {
+        $response = $this->getJson('/api/swagger.json');
+
+        $response->assertOk()
+            ->assertJsonPath('openapi', '3.0.3')
+            ->assertJsonPath('info.title', config('app.name', 'Battle Arena API'))
+            ->assertJsonStructure([
+                'paths' => [
+                    '/api/login',
+                    '/api/pve/battles',
+                ],
+                'components' => [
+                    'schemas' => [
+                        'PveBattle',
+                        'Error',
+                    ],
+                ],
+            ]);
     }
 
     public function test_swagger_ui_is_reachable_after_sync(): void

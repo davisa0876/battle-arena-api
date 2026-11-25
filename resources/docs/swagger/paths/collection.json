@@ -1,0 +1,230 @@
+{
+  "/api/me/creatures": {
+    "get": {
+      "tags": [
+        "Collection"
+      ],
+      "summary": "List my creatures (active first)",
+      "security": [
+        {
+          "sanctum": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/OwnedCreature"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "$ref": "#/components/responses/Unauthenticated"
+        }
+      }
+    }
+  },
+  "/api/me/creatures/{id}": {
+    "get": {
+      "tags": [
+        "Collection"
+      ],
+      "summary": "Show one owned creature (owner only)",
+      "security": [
+        {
+          "sanctum": []
+        }
+      ],
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "$ref": "#/components/schemas/OwnedCreature"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "$ref": "#/components/responses/Unauthenticated"
+        },
+        "403": {
+          "description": "Owned by another trainer",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Error"
+              }
+            }
+          }
+        },
+        "404": {
+          "description": "Not found",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Error"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/me/creatures/{id}/select": {
+    "patch": {
+      "tags": [
+        "Collection"
+      ],
+      "summary": "Make an owned creature the single active one (idempotent)",
+      "security": [
+        {
+          "sanctum": []
+        }
+      ],
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "$ref": "#/components/schemas/OwnedCreature"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "$ref": "#/components/responses/Unauthenticated"
+        },
+        "403": {
+          "description": "Owned by another trainer",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Error"
+              }
+            }
+          }
+        },
+        "404": {
+          "description": "Not found",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Error"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/me/starter": {
+    "post": {
+      "tags": [
+        "Collection"
+      ],
+      "summary": "Choose the starter creature (once per trainer)",
+      "description": "The slug must be one of `starters.creature_slugs` from the game rules and a stage-1 base form in the catalog.",
+      "security": [
+        {
+          "sanctum": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "creature_slug"
+              ],
+              "properties": {
+                "creature_slug": {
+                  "type": "string",
+                  "example": "bulbasaur"
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Starter granted and activated",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "$ref": "#/components/schemas/OwnedCreature"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "$ref": "#/components/responses/Unauthenticated"
+        },
+        "409": {
+          "description": "A starter was already selected",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Error"
+              }
+            }
+          }
+        },
+        "422": {
+          "$ref": "#/components/responses/ValidationError"
+        }
+      }
+    }
+  }
+}

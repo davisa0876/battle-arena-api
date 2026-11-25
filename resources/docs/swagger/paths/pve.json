@@ -1,0 +1,245 @@
+{
+  "/api/pve/battles": {
+    "post": {
+      "tags": ["PvE"],
+      "summary": "Start a PvE battle",
+      "description": "Starts a 1v1 PvE match with an owned creature. Any previous active battle for the trainer is forfeited.",
+      "security": [{ "sanctum": [] }],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": ["owned_creature_id"],
+              "properties": {
+                "owned_creature_id": { "type": "integer", "minimum": 1 },
+                "difficulty": { "type": "string", "enum": ["easy", "normal"], "default": "normal" }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Battle started",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": { "$ref": "#/components/schemas/PveBattle" }
+                }
+              }
+            }
+          }
+        },
+        "401": { "$ref": "#/components/responses/Unauthenticated" },
+        "422": { "$ref": "#/components/responses/ValidationError" },
+        "429": { "$ref": "#/components/responses/TooManyRequests" }
+      }
+    }
+  },
+  "/api/pve/battles/{battle}": {
+    "get": {
+      "tags": ["PvE"],
+      "summary": "Get PvE battle state",
+      "security": [{ "sanctum": [] }],
+      "parameters": [
+        { "name": "battle", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+      ],
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": { "$ref": "#/components/schemas/PveBattle" }
+                }
+              }
+            }
+          }
+        },
+        "401": { "$ref": "#/components/responses/Unauthenticated" },
+        "404": {
+          "description": "Battle not found",
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Error" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/pve/battles/{battle}/events": {
+    "get": {
+      "tags": ["PvE"],
+      "summary": "List raw battle events",
+      "security": [{ "sanctum": [] }],
+      "parameters": [
+        { "name": "battle", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+      ],
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "array",
+                    "items": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": { "$ref": "#/components/responses/Unauthenticated" },
+        "404": {
+          "description": "Battle not found",
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Error" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/pve/battles/{battle}/attack": {
+    "post": {
+      "tags": ["PvE"],
+      "summary": "Submit a player attack (or recover-skip)",
+      "description": "Provide exactly one of `move_id`, `basic_strike`, or `recover`. `recover` restores stamina and skips the attack when equipped moves still have PP but none are affordable.",
+      "security": [{ "sanctum": [] }],
+      "parameters": [
+        { "name": "battle", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+        {
+          "name": "Idempotency-Key",
+          "in": "header",
+          "required": false,
+          "schema": { "type": "string", "maxLength": 120 },
+          "description": "Preferred idempotency header. Falls back to body `idempotency_key`."
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/PveAttackRequest" }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Attack resolved",
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PveActionResponse" }
+            }
+          }
+        },
+        "401": { "$ref": "#/components/responses/Unauthenticated" },
+        "409": {
+          "description": "Wrong phase, stale version, or idempotency conflict",
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Error" }
+            }
+          }
+        },
+        "422": { "$ref": "#/components/responses/ValidationError" },
+        "429": { "$ref": "#/components/responses/TooManyRequests" }
+      }
+    }
+  },
+  "/api/pve/battles/{battle}/defend": {
+    "post": {
+      "tags": ["PvE"],
+      "summary": "Submit a player defense",
+      "security": [{ "sanctum": [] }],
+      "parameters": [
+        { "name": "battle", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+        {
+          "name": "Idempotency-Key",
+          "in": "header",
+          "required": false,
+          "schema": { "type": "string", "maxLength": 120 }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": ["defense", "expected_version"],
+              "properties": {
+                "defense": { "type": "string", "enum": ["endure", "block", "dodge", "recover"] },
+                "expected_version": { "type": "integer", "minimum": 1 },
+                "idempotency_key": { "type": "string", "maxLength": 120 }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Defense resolved",
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PveActionResponse" }
+            }
+          }
+        },
+        "401": { "$ref": "#/components/responses/Unauthenticated" },
+        "409": {
+          "description": "Wrong phase, stale version, or idempotency conflict",
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Error" }
+            }
+          }
+        },
+        "422": { "$ref": "#/components/responses/ValidationError" },
+        "429": { "$ref": "#/components/responses/TooManyRequests" }
+      }
+    }
+  },
+  "/api/pve/battles/{battle}/abandon": {
+    "post": {
+      "tags": ["PvE"],
+      "summary": "Abandon (give up) the battle",
+      "description": "Counts as a loss with `end_reason=abandoned`. No trainer XP is awarded.",
+      "security": [{ "sanctum": [] }],
+      "parameters": [
+        { "name": "battle", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+      ],
+      "responses": {
+        "200": {
+          "description": "Battle abandoned",
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PveActionResponse" }
+            }
+          }
+        },
+        "401": { "$ref": "#/components/responses/Unauthenticated" },
+        "404": {
+          "description": "Battle not found",
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Error" }
+            }
+          }
+        },
+        "429": { "$ref": "#/components/responses/TooManyRequests" }
+      }
+    }
+  }
+}

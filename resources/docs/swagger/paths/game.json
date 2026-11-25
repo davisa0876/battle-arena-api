@@ -1,0 +1,27 @@
+{
+  "/api/game/rules": {
+    "get": {
+      "tags": [
+        "Game"
+      ],
+      "summary": "Versioned game rules, feature flags and XP curve",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "$ref": "#/components/schemas/GameRules"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

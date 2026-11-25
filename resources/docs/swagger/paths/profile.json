@@ -1,0 +1,358 @@
+{
+  "/api/me": {
+    "get": {
+      "tags": [
+        "Profile"
+      ],
+      "summary": "Current account, profile, trainer progress and onboarding state",
+      "security": [
+        {
+          "sanctum": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "$ref": "#/components/schemas/AuthenticatedUser"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "$ref": "#/components/responses/Unauthenticated"
+        }
+      }
+    }
+  },
+  "/api/me/profile": {
+    "patch": {
+      "tags": [
+        "Profile"
+      ],
+      "summary": "Update profile fields (all optional)",
+      "security": [
+        {
+          "sanctum": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "handle": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 24,
+                  "pattern": "^[a-zA-Z0-9_]+$"
+                },
+                "display_name": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "bio": {
+                  "type": "string",
+                  "maxLength": 500,
+                  "nullable": true
+                },
+                "collection_is_public": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Updated",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "$ref": "#/components/schemas/AuthenticatedUser"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "$ref": "#/components/responses/Unauthenticated"
+        },
+        "422": {
+          "$ref": "#/components/responses/ValidationError"
+        }
+      }
+    }
+  },
+  "/api/me/password": {
+    "patch": {
+      "tags": [
+        "Profile"
+      ],
+      "summary": "Change password (revokes other tokens)",
+      "security": [
+        {
+          "sanctum": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "current_password",
+                "password",
+                "password_confirmation"
+              ],
+              "properties": {
+                "current_password": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string",
+                  "minLength": 8,
+                  "maxLength": 72
+                },
+                "password_confirmation": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "$ref": "#/components/responses/Message"
+        },
+        "401": {
+          "$ref": "#/components/responses/Unauthenticated"
+        },
+        "422": {
+          "$ref": "#/components/responses/ValidationError"
+        }
+      }
+    }
+  },
+  "/api/me/avatar": {
+    "post": {
+      "tags": [
+        "Profile"
+      ],
+      "summary": "Upload an avatar",
+      "description": "JPG/PNG/WebP, up to 2048 KB and 32-1024 px per side. Re-encoded server side to a 512 px square; SVG is rejected. `503` when image processing is unavailable.",
+      "security": [
+        {
+          "sanctum": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "multipart/form-data": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "avatar"
+              ],
+              "properties": {
+                "avatar": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Updated account",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "$ref": "#/components/schemas/AuthenticatedUser"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "$ref": "#/components/responses/Unauthenticated"
+        },
+        "422": {
+          "$ref": "#/components/responses/ValidationError"
+        },
+        "503": {
+          "description": "Image processing or storage unavailable",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Error"
+              }
+            }
+          }
+        }
+      }
+    },
+    "delete": {
+      "tags": [
+        "Profile"
+      ],
+      "summary": "Remove the avatar",
+      "security": [
+        {
+          "sanctum": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Updated account",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "$ref": "#/components/schemas/AuthenticatedUser"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "$ref": "#/components/responses/Unauthenticated"
+        }
+      }
+    }
+  },
+  "/api/avatars/{userId}": {
+    "get": {
+      "tags": [
+        "Profile"
+      ],
+      "summary": "Stream a trainer's avatar image",
+      "parameters": [
+        {
+          "name": "userId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        },
+        {
+          "name": "v",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string"
+          },
+          "description": "Cache-busting token included in `avatar_url`."
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Image bytes",
+          "content": {
+            "image/webp": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "404": {
+          "description": "No avatar",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Error"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/players/{handle}": {
+    "get": {
+      "tags": [
+        "Profile"
+      ],
+      "summary": "Public trainer profile",
+      "description": "Case-insensitive handle. Never includes email. `creatures` is present only when `collection_is_public` is true.",
+      "parameters": [
+        {
+          "name": "handle",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "$ref": "#/components/schemas/PublicPlayer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "404": {
+          "description": "Trainer not found",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Error"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

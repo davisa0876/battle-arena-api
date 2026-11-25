@@ -42,7 +42,8 @@ return [
 
                 /*
                  * Absolute paths to directory containing the swagger annotations are stored.
-                 * Full paths/schemas come from docs/openapi.yaml via `php artisan openapi:sync`.
+                 * Full paths/schemas come from Horus-style fragments in resources/docs/swagger
+                 * via `php artisan openapi:sync`.
                  */
                 'annotations' => [
                     base_path('app/OpenApi'),

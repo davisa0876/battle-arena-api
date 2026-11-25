@@ -1,0 +1,2021 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+        "title": "Battle Arena API",
+        "version": "3.1.0",
+        "description": "Phase 3+ contract: accounts, profiles, owned creatures, game rules and PvE arena battles.\n\nAuthentication: web uses Sanctum cookie sessions (call `GET /sanctum/csrf-cookie` first, send\n`X-XSRF-TOKEN`, omit `device_name`). Mobile sends `device_name` and receives a bearer token.\nLocalized messages follow `Accept-Language` (en, fr, pt-BR, it, es).\n\nDocs are maintained as Horus-style JSON fragments under `resources/docs/swagger/`."
+    },
+    "servers": [
+        {
+            "url": "http://localhost:8000",
+            "description": "Local Compose API"
+        }
+    ],
+    "tags": [
+        {
+            "name": "Auth",
+            "description": "Registration, login and password recovery"
+        },
+        {
+            "name": "Profile",
+            "description": "Trainer profile and avatar"
+        },
+        {
+            "name": "Collection",
+            "description": "Owned creatures, starter and acquire"
+        },
+        {
+            "name": "Game",
+            "description": "Published game rules and feature flags"
+        },
+        {
+            "name": "Catalog",
+            "description": "Public creature catalog"
+        },
+        {
+            "name": "PvE",
+            "description": "Solo arena battles"
+        }
+    ],
+    "paths": {
+        "/api/register": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Register a trainer (user + profile + level-1 progress)",
+                "description": "Throttled. Without `device_name` from a stateful browser origin a cookie session is started; otherwise `device_name` is required and a token is returned.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "handle",
+                                    "email",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "handle": {
+                                        "type": "string",
+                                        "minLength": 3,
+                                        "maxLength": 24,
+                                        "pattern": "^[a-zA-Z0-9_]+$",
+                                        "description": "Stored lowercase; unique case-insensitively."
+                                    },
+                                    "display_name": {
+                                        "type": "string",
+                                        "maxLength": 64,
+                                        "nullable": true,
+                                        "description": "Defaults to the handle."
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "minLength": 8,
+                                        "maxLength": 72,
+                                        "description": "Must contain letters and numbers."
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string"
+                                    },
+                                    "device_name": {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "description": "Required for non-browser clients."
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Registered",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AuthenticatedUserResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/api/login": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Log in (session or token)",
+                "description": "Throttled per email and IP.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "password": {
+                                        "type": "string"
+                                    },
+                                    "device_name": {
+                                        "type": "string",
+                                        "maxLength": 120,
+                                        "description": "Present for mobile clients; returns a bearer token."
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Authenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AuthenticatedUserResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/api/logout": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Revoke the current token or end the cookie session",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "$ref": "#/components/responses/Message"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    }
+                }
+            }
+        },
+        "/api/forgot-password": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Send a password reset link",
+                "description": "Always answers 200 so registered emails cannot be discovered. The link targets `FRONTEND_PASSWORD_RESET_URL?token=&email=`.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "email"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "$ref": "#/components/responses/Message"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/api/reset-password": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Reset the password with an emailed token (revokes all tokens)",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "token",
+                                    "email",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "token": {
+                                        "type": "string"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "password": {
+                                        "type": "string"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "$ref": "#/components/responses/Message"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/api/email/verify/{id}/{hash}": {
+            "get": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Verify an email address (signed URL from the verification email)",
+                "description": "Browsers receive a redirect to `FRONTEND_EMAIL_VERIFIED_URL?status=verified`; clients sending an `Accept` header of `application/json` receive JSON.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "hash",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "sha1 of the email address."
+                    },
+                    {
+                        "name": "expires",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "signature",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "$ref": "#/components/responses/Message"
+                    },
+                    "302": {
+                        "description": "Redirect to the frontend"
+                    },
+                    "403": {
+                        "description": "Invalid or expired link",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/email/verification-notification": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Resend the verification email",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "$ref": "#/components/responses/Message"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/api/me/creatures": {
+            "get": {
+                "tags": [
+                    "Collection"
+                ],
+                "summary": "List my creatures (active first)",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/OwnedCreature"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    }
+                }
+            }
+        },
+        "/api/me/creatures/{id}": {
+            "get": {
+                "tags": [
+                    "Collection"
+                ],
+                "summary": "Show one owned creature (owner only)",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/OwnedCreature"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Owned by another trainer",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/me/creatures/{id}/select": {
+            "patch": {
+                "tags": [
+                    "Collection"
+                ],
+                "summary": "Make an owned creature the single active one (idempotent)",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/OwnedCreature"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Owned by another trainer",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/me/starter": {
+            "post": {
+                "tags": [
+                    "Collection"
+                ],
+                "summary": "Choose the starter creature (once per trainer)",
+                "description": "The slug must be one of `starters.creature_slugs` from the game rules and a stage-1 base form in the catalog.",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "creature_slug"
+                                ],
+                                "properties": {
+                                    "creature_slug": {
+                                        "type": "string",
+                                        "example": "bulbasaur"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Starter granted and activated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/OwnedCreature"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "409": {
+                        "description": "A starter was already selected",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    }
+                }
+            }
+        },
+        "/api/game/rules": {
+            "get": {
+                "tags": [
+                    "Game"
+                ],
+                "summary": "Versioned game rules, feature flags and XP curve",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/GameRules"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/me": {
+            "get": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Current account, profile, trainer progress and onboarding state",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/AuthenticatedUser"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    }
+                }
+            }
+        },
+        "/api/me/profile": {
+            "patch": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Update profile fields (all optional)",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "handle": {
+                                        "type": "string",
+                                        "minLength": 3,
+                                        "maxLength": 24,
+                                        "pattern": "^[a-zA-Z0-9_]+$"
+                                    },
+                                    "display_name": {
+                                        "type": "string",
+                                        "maxLength": 64
+                                    },
+                                    "bio": {
+                                        "type": "string",
+                                        "maxLength": 500,
+                                        "nullable": true
+                                    },
+                                    "collection_is_public": {
+                                        "type": "boolean"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/AuthenticatedUser"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    }
+                }
+            }
+        },
+        "/api/me/password": {
+            "patch": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Change password (revokes other tokens)",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "current_password",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "current_password": {
+                                        "type": "string"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "minLength": 8,
+                                        "maxLength": 72
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "$ref": "#/components/responses/Message"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    }
+                }
+            }
+        },
+        "/api/me/avatar": {
+            "post": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Upload an avatar",
+                "description": "JPG/PNG/WebP, up to 2048 KB and 32-1024 px per side. Re-encoded server side to a 512 px square; SVG is rejected. `503` when image processing is unavailable.",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "avatar"
+                                ],
+                                "properties": {
+                                    "avatar": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated account",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/AuthenticatedUser"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    },
+                    "503": {
+                        "description": "Image processing or storage unavailable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Remove the avatar",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated account",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/AuthenticatedUser"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    }
+                }
+            }
+        },
+        "/api/avatars/{userId}": {
+            "get": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Stream a trainer's avatar image",
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "v",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Cache-busting token included in `avatar_url`."
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Image bytes",
+                        "content": {
+                            "image/webp": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            },
+                            "image/jpeg": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            },
+                            "image/png": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No avatar",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/players/{handle}": {
+            "get": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Public trainer profile",
+                "description": "Case-insensitive handle. Never includes email. `creatures` is present only when `collection_is_public` is true.",
+                "parameters": [
+                    {
+                        "name": "handle",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PublicPlayer"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Trainer not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/pve/battles": {
+            "post": {
+                "tags": [
+                    "PvE"
+                ],
+                "summary": "Start a PvE battle",
+                "description": "Starts a 1v1 PvE match with an owned creature. Any previous active battle for the trainer is forfeited.",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "owned_creature_id"
+                                ],
+                                "properties": {
+                                    "owned_creature_id": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "difficulty": {
+                                        "type": "string",
+                                        "enum": [
+                                            "easy",
+                                            "normal"
+                                        ],
+                                        "default": "normal"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Battle started",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PveBattle"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/api/pve/battles/{battle}": {
+            "get": {
+                "tags": [
+                    "PvE"
+                ],
+                "summary": "Get PvE battle state",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "battle",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PveBattle"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "404": {
+                        "description": "Battle not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/pve/battles/{battle}/events": {
+            "get": {
+                "tags": [
+                    "PvE"
+                ],
+                "summary": "List raw battle events",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "battle",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "404": {
+                        "description": "Battle not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/pve/battles/{battle}/attack": {
+            "post": {
+                "tags": [
+                    "PvE"
+                ],
+                "summary": "Submit a player attack (or recover-skip)",
+                "description": "Provide exactly one of `move_id`, `basic_strike`, or `recover`. `recover` restores stamina and skips the attack when equipped moves still have PP but none are affordable.",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "battle",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 120
+                        },
+                        "description": "Preferred idempotency header. Falls back to body `idempotency_key`."
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PveAttackRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Attack resolved",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PveActionResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "409": {
+                        "description": "Wrong phase, stale version, or idempotency conflict",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/api/pve/battles/{battle}/defend": {
+            "post": {
+                "tags": [
+                    "PvE"
+                ],
+                "summary": "Submit a player defense",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "battle",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 120
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "defense",
+                                    "expected_version"
+                                ],
+                                "properties": {
+                                    "defense": {
+                                        "type": "string",
+                                        "enum": [
+                                            "endure",
+                                            "block",
+                                            "dodge",
+                                            "recover"
+                                        ]
+                                    },
+                                    "expected_version": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "idempotency_key": {
+                                        "type": "string",
+                                        "maxLength": 120
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Defense resolved",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PveActionResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "409": {
+                        "description": "Wrong phase, stale version, or idempotency conflict",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/api/pve/battles/{battle}/abandon": {
+            "post": {
+                "tags": [
+                    "PvE"
+                ],
+                "summary": "Abandon (give up) the battle",
+                "description": "Counts as a loss with `end_reason=abandoned`. No trainer XP is awarded.",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "battle",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Battle abandoned",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PveActionResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "404": {
+                        "description": "Battle not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "AuthenticatedUser": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "email_verified": {
+                        "type": "boolean"
+                    },
+                    "email_verified_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "profile": {
+                        "type": "object",
+                        "nullable": true,
+                        "properties": {
+                            "handle": {
+                                "type": "string"
+                            },
+                            "display_name": {
+                                "type": "string"
+                            },
+                            "bio": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "avatar_url": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "collection_is_public": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "trainer": {
+                        "$ref": "#/components/schemas/TrainerProgress"
+                    },
+                    "onboarding": {
+                        "type": "object",
+                        "properties": {
+                            "starter_selected": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "AuthenticatedUserResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "$ref": "#/components/schemas/AuthenticatedUser"
+                    },
+                    "meta": {
+                        "type": "object",
+                        "properties": {
+                            "auth_mode": {
+                                "type": "string",
+                                "enum": [
+                                    "session",
+                                    "token"
+                                ]
+                            },
+                            "token": {
+                                "type": "string",
+                                "description": "Only when auth_mode is token."
+                            },
+                            "token_type": {
+                                "type": "string",
+                                "example": "Bearer"
+                            }
+                        }
+                    }
+                }
+            },
+            "TrainerProgress": {
+                "type": "object",
+                "properties": {
+                    "level": {
+                        "type": "integer"
+                    },
+                    "total_xp": {
+                        "type": "integer"
+                    },
+                    "xp_into_level": {
+                        "type": "integer"
+                    },
+                    "xp_for_next_level": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "xp_to_next_level": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "progress_percent": {
+                        "type": "number"
+                    },
+                    "is_max_level": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "OwnedCreature": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "level": {
+                        "type": "integer"
+                    },
+                    "total_xp": {
+                        "type": "integer"
+                    },
+                    "is_active": {
+                        "type": "boolean"
+                    },
+                    "acquired_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "creature": {
+                        "type": "object",
+                        "description": "Catalog creature with id/name/slug/image_url/types/base_stats."
+                    },
+                    "evolution": {
+                        "type": "object",
+                        "properties": {
+                            "execution_enabled": {
+                                "type": "boolean"
+                            },
+                            "options": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/EvolutionOption"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "EvolutionOption": {
+                "type": "object",
+                "properties": {
+                    "creature": {
+                        "type": "object",
+                        "description": "Same shape as a catalog creature."
+                    },
+                    "eligible": {
+                        "type": "boolean"
+                    },
+                    "locked": {
+                        "type": "boolean"
+                    },
+                    "reason_code": {
+                        "type": "string",
+                        "example": "requirements_not_defined"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Localized."
+                    }
+                }
+            },
+            "Error": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    }
+                }
+            },
+            "GameRules": {
+                "type": "object",
+                "properties": {
+                    "rules_version": {
+                        "type": "string",
+                        "example": "3.0.0"
+                    },
+                    "features": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "boolean"
+                        }
+                    },
+                    "progression": {
+                        "type": "object",
+                        "properties": {
+                            "xp_base": {
+                                "type": "integer"
+                            },
+                            "xp_growth": {
+                                "type": "number"
+                            },
+                            "max_level": {
+                                "type": "integer"
+                            },
+                            "formula": {
+                                "type": "string"
+                            },
+                            "curve": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "level": {
+                                            "type": "integer"
+                                        },
+                                        "xp_to_advance": {
+                                            "type": "integer"
+                                        },
+                                        "total_xp_required": {
+                                            "type": "integer"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "starters": {
+                        "type": "object",
+                        "properties": {
+                            "creature_slugs": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "avatar": {
+                        "type": "object",
+                        "properties": {
+                            "max_upload_kb": {
+                                "type": "integer"
+                            },
+                            "max_dimension": {
+                                "type": "integer"
+                            },
+                            "output_dimension": {
+                                "type": "integer"
+                            },
+                            "allowed_mime_types": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "PublicPlayer": {
+                "type": "object",
+                "properties": {
+                    "handle": {
+                        "type": "string"
+                    },
+                    "display_name": {
+                        "type": "string"
+                    },
+                    "bio": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "avatar_url": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "collection_is_public": {
+                        "type": "boolean"
+                    },
+                    "trainer": {
+                        "$ref": "#/components/schemas/TrainerProgress"
+                    },
+                    "creatures": {
+                        "type": "array",
+                        "description": "Only present when the collection is public.",
+                        "items": {
+                            "$ref": "#/components/schemas/OwnedCreature"
+                        }
+                    }
+                }
+            },
+            "PveAttackRequest": {
+                "type": "object",
+                "required": [
+                    "expected_version"
+                ],
+                "properties": {
+                    "move_id": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "nullable": true
+                    },
+                    "basic_strike": {
+                        "type": "boolean",
+                        "description": "Only when no equipped move has PP left."
+                    },
+                    "recover": {
+                        "type": "boolean",
+                        "description": "Recover +15 stamina and skip the attack when moves still have PP but none are affordable."
+                    },
+                    "expected_version": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "idempotency_key": {
+                        "type": "string",
+                        "maxLength": 120
+                    }
+                },
+                "description": "Provide exactly one of move_id, basic_strike, or recover."
+            },
+            "PveRecord": {
+                "type": "object",
+                "properties": {
+                    "wins": {
+                        "type": "integer"
+                    },
+                    "losses": {
+                        "type": "integer"
+                    },
+                    "give_ups": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "PveReward": {
+                "type": "object",
+                "nullable": true,
+                "properties": {
+                    "xp_awarded": {
+                        "type": "integer"
+                    },
+                    "trainer_levels_gained": {
+                        "type": "integer"
+                    },
+                    "duplicate": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "PveResourceBar": {
+                "type": "object",
+                "properties": {
+                    "current": {
+                        "type": "integer"
+                    },
+                    "max": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "PveBattleMove": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "power": {
+                        "type": "integer"
+                    },
+                    "accuracy": {
+                        "type": "integer"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "damage_class": {
+                        "type": "string"
+                    },
+                    "pp": {
+                        "$ref": "#/components/schemas/PveResourceBar"
+                    },
+                    "stamina_cost": {
+                        "type": "integer"
+                    },
+                    "can_use": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "PveCombatant": {
+                "type": "object",
+                "properties": {
+                    "owned_creature_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "image_ref": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "cry_latest_url": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "cry_legacy_url": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "cry_url": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "level": {
+                        "type": "integer"
+                    },
+                    "types": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "hp": {
+                        "$ref": "#/components/schemas/PveResourceBar"
+                    },
+                    "stamina": {
+                        "$ref": "#/components/schemas/PveResourceBar"
+                    },
+                    "moves": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PveBattleMove"
+                        }
+                    },
+                    "intent": {
+                        "type": "object",
+                        "nullable": true,
+                        "properties": {
+                            "type_slug": {
+                                "type": "string"
+                            },
+                            "damage_class": {
+                                "type": "string"
+                            },
+                            "is_basic_strike": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                }
+            },
+            "PveBattle": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "mode": {
+                        "type": "string",
+                        "enum": [
+                            "pve"
+                        ]
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "phase": {
+                        "type": "string",
+                        "enum": [
+                            "awaiting_player_attack",
+                            "awaiting_player_defense",
+                            "finished"
+                        ]
+                    },
+                    "round": {
+                        "type": "integer"
+                    },
+                    "version": {
+                        "type": "integer"
+                    },
+                    "rules_version": {
+                        "type": "string"
+                    },
+                    "difficulty": {
+                        "type": "string"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "enum": [
+                            "win",
+                            "loss"
+                        ],
+                        "nullable": true
+                    },
+                    "end_reason": {
+                        "type": "string",
+                        "enum": [
+                            "combat",
+                            "abandoned"
+                        ],
+                        "nullable": true
+                    },
+                    "player": {
+                        "$ref": "#/components/schemas/PveCombatant"
+                    },
+                    "opponent": {
+                        "$ref": "#/components/schemas/PveCombatant"
+                    },
+                    "allowed_actions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "attack",
+                                "defend",
+                                "recover"
+                            ]
+                        }
+                    },
+                    "last_event_sequence": {
+                        "type": "integer"
+                    },
+                    "combat_log": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "record": {
+                        "$ref": "#/components/schemas/PveRecord"
+                    },
+                    "reward": {
+                        "$ref": "#/components/schemas/PveReward"
+                    }
+                }
+            },
+            "PveActionResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "object",
+                        "properties": {
+                            "battle": {
+                                "$ref": "#/components/schemas/PveBattle"
+                            },
+                            "events": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object"
+                                }
+                            },
+                            "reward": {
+                                "$ref": "#/components/schemas/PveReward"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "responses": {
+            "Message": {
+                "description": "OK",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Error"
+                        }
+                    }
+                }
+            },
+            "Unauthenticated": {
+                "description": "Authentication required",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Error"
+                        }
+                    }
+                }
+            },
+            "ValidationError": {
+                "description": "Validation failed",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "TooManyRequests": {
+                "description": "Rate limit exceeded"
+            }
+        },
+        "parameters": [],
+        "securitySchemes": {
+            "sanctum": {
+                "type": "http",
+                "scheme": "bearer",
+                "description": "Sanctum personal access token (mobile). Web uses the session cookie instead."
+            }
+        }
+    },
+    "security": []
+}

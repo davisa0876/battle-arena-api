@@ -1,0 +1,64 @@
+{
+  "OwnedCreature": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "integer"
+      },
+      "level": {
+        "type": "integer"
+      },
+      "total_xp": {
+        "type": "integer"
+      },
+      "is_active": {
+        "type": "boolean"
+      },
+      "acquired_at": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "creature": {
+        "type": "object",
+        "description": "Catalog creature with id/name/slug/image_url/types/base_stats."
+      },
+      "evolution": {
+        "type": "object",
+        "properties": {
+          "execution_enabled": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EvolutionOption"
+            }
+          }
+        }
+      }
+    }
+  },
+  "EvolutionOption": {
+    "type": "object",
+    "properties": {
+      "creature": {
+        "type": "object",
+        "description": "Same shape as a catalog creature."
+      },
+      "eligible": {
+        "type": "boolean"
+      },
+      "locked": {
+        "type": "boolean"
+      },
+      "reason_code": {
+        "type": "string",
+        "example": "requirements_not_defined"
+      },
+      "reason": {
+        "type": "string",
+        "description": "Localized."
+      }
+    }
+  }
+}

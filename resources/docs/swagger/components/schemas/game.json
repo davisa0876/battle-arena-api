@@ -1,0 +1,82 @@
+{
+  "GameRules": {
+    "type": "object",
+    "properties": {
+      "rules_version": {
+        "type": "string",
+        "example": "3.0.0"
+      },
+      "features": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "boolean"
+        }
+      },
+      "progression": {
+        "type": "object",
+        "properties": {
+          "xp_base": {
+            "type": "integer"
+          },
+          "xp_growth": {
+            "type": "number"
+          },
+          "max_level": {
+            "type": "integer"
+          },
+          "formula": {
+            "type": "string"
+          },
+          "curve": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "level": {
+                  "type": "integer"
+                },
+                "xp_to_advance": {
+                  "type": "integer"
+                },
+                "total_xp_required": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "starters": {
+        "type": "object",
+        "properties": {
+          "creature_slugs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "avatar": {
+        "type": "object",
+        "properties": {
+          "max_upload_kb": {
+            "type": "integer"
+          },
+          "max_dimension": {
+            "type": "integer"
+          },
+          "output_dimension": {
+            "type": "integer"
+          },
+          "allowed_mime_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

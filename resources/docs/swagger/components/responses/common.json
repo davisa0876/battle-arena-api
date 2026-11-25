@@ -1,0 +1,49 @@
+{
+  "Message": {
+    "description": "OK",
+    "content": {
+      "application/json": {
+        "schema": {
+          "$ref": "#/components/schemas/Error"
+        }
+      }
+    }
+  },
+  "Unauthenticated": {
+    "description": "Authentication required",
+    "content": {
+      "application/json": {
+        "schema": {
+          "$ref": "#/components/schemas/Error"
+        }
+      }
+    }
+  },
+  "ValidationError": {
+    "description": "Validation failed",
+    "content": {
+      "application/json": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "errors": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "TooManyRequests": {
+    "description": "Rate limit exceeded"
+  }
+}

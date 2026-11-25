@@ -78,3 +78,5 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/pve/battles/{battle}/abandon', \App\Http\Controllers\Api\Pve\AbandonBattleController::class)
         ->middleware('throttle:pve-actions');
 });
+
+require __DIR__.'/swagger.php';

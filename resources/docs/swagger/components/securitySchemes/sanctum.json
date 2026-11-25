@@ -1,0 +1,7 @@
+{
+  "sanctum": {
+    "type": "http",
+    "scheme": "bearer",
+    "description": "Sanctum personal access token (mobile). Web uses the session cookie instead."
+  }
+}
