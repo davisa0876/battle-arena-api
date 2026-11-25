@@ -73,7 +73,7 @@ class CreatureResourceTest extends TestCase
         $data = $this->render(new CreatureResource($creature));
 
         $this->assertSame(
-            ['id', 'name', 'slug', 'height_cm', 'weight_g', 'image_ref', 'image_url', 'evolution_stage', 'is_owned', 'can_select', 'selection_action', 'selection_blocked_reason', 'types', 'base_stats'],
+            ['id', 'name', 'slug', 'height_cm', 'weight_g', 'image_ref', 'image_url', 'cry_latest_url', 'cry_legacy_url', 'cry_url', 'evolution_stage', 'is_owned', 'can_select', 'selection_action', 'selection_blocked_reason', 'types', 'base_stats'],
             array_keys($data),
         );
         $this->assertSame(

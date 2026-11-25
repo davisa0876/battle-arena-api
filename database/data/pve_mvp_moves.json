@@ -1,0 +1,22 @@
+[
+  {"slug":"tackle","name":"Tackle","external_id":33,"power":40,"accuracy":100,"pp":35,"damage_class":"physical","type_slug":"normal","priority":0},
+  {"slug":"scratch","name":"Scratch","external_id":10,"power":40,"accuracy":100,"pp":35,"damage_class":"physical","type_slug":"normal","priority":0},
+  {"slug":"pound","name":"Pound","external_id":1,"power":40,"accuracy":100,"pp":35,"damage_class":"physical","type_slug":"normal","priority":0},
+  {"slug":"quick-attack","name":"Quick Attack","external_id":98,"power":40,"accuracy":100,"pp":30,"damage_class":"physical","type_slug":"normal","priority":1},
+  {"slug":"bite","name":"Bite","external_id":44,"power":60,"accuracy":100,"pp":25,"damage_class":"physical","type_slug":"dark","priority":0},
+  {"slug":"ember","name":"Ember","external_id":52,"power":40,"accuracy":100,"pp":25,"damage_class":"special","type_slug":"fire","priority":0},
+  {"slug":"flamethrower","name":"Flamethrower","external_id":53,"power":90,"accuracy":100,"pp":15,"damage_class":"special","type_slug":"fire","priority":0},
+  {"slug":"vine-whip","name":"Vine Whip","external_id":22,"power":45,"accuracy":100,"pp":25,"damage_class":"physical","type_slug":"grass","priority":0},
+  {"slug":"razor-leaf","name":"Razor Leaf","external_id":75,"power":55,"accuracy":95,"pp":25,"damage_class":"physical","type_slug":"grass","priority":0},
+  {"slug":"water-gun","name":"Water Gun","external_id":55,"power":40,"accuracy":100,"pp":25,"damage_class":"special","type_slug":"water","priority":0},
+  {"slug":"bubble","name":"Bubble","external_id":145,"power":40,"accuracy":100,"pp":30,"damage_class":"special","type_slug":"water","priority":0},
+  {"slug":"thunder-shock","name":"Thunder Shock","external_id":84,"power":40,"accuracy":100,"pp":30,"damage_class":"special","type_slug":"electric","priority":0},
+  {"slug":"thunderbolt","name":"Thunderbolt","external_id":85,"power":90,"accuracy":100,"pp":15,"damage_class":"special","type_slug":"electric","priority":0},
+  {"slug":"confusion","name":"Confusion","external_id":93,"power":50,"accuracy":100,"pp":25,"damage_class":"special","type_slug":"psychic","priority":0},
+  {"slug":"psybeam","name":"Psybeam","external_id":60,"power":65,"accuracy":100,"pp":20,"damage_class":"special","type_slug":"psychic","priority":0},
+  {"slug":"rock-throw","name":"Rock Throw","external_id":88,"power":50,"accuracy":90,"pp":15,"damage_class":"physical","type_slug":"rock","priority":0},
+  {"slug":"mud-slap","name":"Mud-Slap","external_id":189,"power":20,"accuracy":100,"pp":10,"damage_class":"special","type_slug":"ground","priority":0},
+  {"slug":"gust","name":"Gust","external_id":16,"power":40,"accuracy":100,"pp":35,"damage_class":"special","type_slug":"flying","priority":0},
+  {"slug":"peck","name":"Peck","external_id":64,"power":35,"accuracy":100,"pp":35,"damage_class":"physical","type_slug":"flying","priority":0},
+  {"slug":"absorb","name":"Absorb","external_id":71,"power":20,"accuracy":100,"pp":25,"damage_class":"special","type_slug":"grass","priority":0}
+]

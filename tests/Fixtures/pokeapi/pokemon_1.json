@@ -14,6 +14,10 @@
       }
     }
   },
+  "cries": {
+    "latest": "https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/1.ogg",
+    "legacy": "https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/legacy/1.ogg"
+  },
   "stats": [
     {"base_stat": 45, "stat": {"name": "hp"}},
     {"base_stat": 49, "stat": {"name": "attack"}},

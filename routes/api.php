@@ -66,4 +66,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/me/creatures/acquire', AcquireCreatureController::class);
     Route::get('/me/creatures/{id}', [OwnedCreatureController::class, 'show'])->whereNumber('id');
     Route::patch('/me/creatures/{id}/select', SelectOwnedCreatureController::class)->whereNumber('id');
+
+    Route::post('/pve/battles', \App\Http\Controllers\Api\Pve\StartBattleController::class)
+        ->middleware('throttle:pve-actions');
+    Route::get('/pve/battles/{battle}', \App\Http\Controllers\Api\Pve\BattleStateController::class);
+    Route::get('/pve/battles/{battle}/events', \App\Http\Controllers\Api\Pve\BattleEventsController::class);
+    Route::post('/pve/battles/{battle}/attack', \App\Http\Controllers\Api\Pve\AttackController::class)
+        ->middleware('throttle:pve-actions');
+    Route::post('/pve/battles/{battle}/defend', \App\Http\Controllers\Api\Pve\DefendController::class)
+        ->middleware('throttle:pve-actions');
+    Route::post('/pve/battles/{battle}/abandon', \App\Http\Controllers\Api\Pve\AbandonBattleController::class)
+        ->middleware('throttle:pve-actions');
 });

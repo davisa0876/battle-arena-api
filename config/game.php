@@ -14,7 +14,7 @@ return [
     |
     */
 
-    'rules_version' => '3.1.0',
+    'rules_version' => '4.0.0',
 
     /*
     |--------------------------------------------------------------------------
@@ -72,7 +72,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Battle Eligibility & Rewards (no battle engine yet)
+    | Battle Eligibility & Rewards
     |--------------------------------------------------------------------------
     */
 
@@ -89,6 +89,71 @@ return [
                 'loss' => 10,
             ],
         ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | PvE Combat Rules (PROVISIONAL — versioned, snapshotted per match)
+    |--------------------------------------------------------------------------
+    |
+    | Compatibility note: public Game Rules continue to expose `features.pve`
+    | (not `features.pve_playable`) so existing clients keep working. Flip
+    | features.pve to true only after the full playable flow is verified.
+    |
+    | Version group for imported move learnsets: scarlet-violet (Gen 9).
+    |
+    */
+
+    'pve' => [
+        'rules_version' => 'pve-0.1',
+        'version_group' => 'scarlet-violet',
+        'max_moves' => 4,
+        'stamina_max' => 100,
+        'stab' => 1.5,
+        'random_damage_min' => 1.0,
+        'random_damage_max' => 1.0,
+        'stamina_cost' => [
+            'base' => 3,
+            'per_ten_power' => 3,
+            'min' => 10,
+            'max' => 35,
+        ],
+        'defense' => [
+            'endure' => ['stamina_cost' => 0, 'damage_multiplier' => 1.0],
+            'block' => ['stamina_cost' => 10, 'damage_multiplier' => 0.5],
+            'dodge' => ['stamina_cost' => 20, 'success_chance' => 0.6, 'damage_multiplier' => 1.0],
+            'recover' => ['stamina_cost' => 0, 'stamina_restore' => 15, 'damage_multiplier' => 1.0],
+        ],
+        'basic_strike' => [
+            'slug' => 'basic_strike',
+            'name' => 'Basic Strike',
+            'power' => 20,
+            'accuracy' => 100,
+            'pp_max' => 0,
+            'stamina_cost' => 0,
+            'damage_class' => 'physical',
+            'type_slug' => 'normal',
+            'priority' => 0,
+        ],
+        'effective_stats' => [
+            // Simplified level formula without IVs/EVs/nature (PROVISIONAL).
+            'formula' => 'hp = floor((2*base*level)/100) + level + 10; other = floor((2*base*level)/100) + 5',
+        ],
+        'difficulties' => ['easy', 'normal'],
+        'default_difficulty' => 'normal',
+        'opponent_creature_slugs' => [
+            'bulbasaur', 'charmander', 'squirtle', 'pikachu', 'eevee',
+            'oddish', 'growlithe', 'poliwag', 'machop', 'geodude',
+            'gastly', 'magnemite', 'cubone', 'ponyta', 'abra',
+            'caterpie', 'weedle', 'pidgey', 'rattata', 'spearow',
+        ],
+        'mvp_move_slugs' => [
+            'tackle', 'scratch', 'pound', 'quick-attack', 'bite',
+            'ember', 'flamethrower', 'vine-whip', 'razor-leaf', 'water-gun',
+            'bubble', 'thunder-shock', 'thunderbolt', 'confusion', 'psybeam',
+            'rock-throw', 'mud-slap', 'gust', 'peck', 'absorb',
+        ],
+        'max_concurrent_active' => 1,
     ],
 
     /*
@@ -117,7 +182,7 @@ return [
         'collection' => true,
         'starter_selection' => true,
         'creature_selection' => true,
-        'pve' => false,
+        'pve' => true,
         'pvp' => false,
         'evolution_execution' => false,
         'multiplayer' => false,

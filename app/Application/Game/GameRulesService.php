@@ -73,7 +73,16 @@ class GameRulesService
                 'pve_min_trainer_level' => $this->battleEligibility->pveMinTrainerLevel(),
                 'pvp_min_trainer_level' => $this->battleEligibility->pvpMinTrainerLevel(),
                 'rewards' => $this->battleRewards->allRewards(),
-                'playable' => false,
+                // Mirrors features.pve so clients have a single playable signal.
+                'playable' => (bool) $this->config->get('game.features.pve', false),
+            ],
+            'pve' => [
+                'rules_version' => (string) $this->config->get('game.pve.rules_version', 'pve-0.1'),
+                'stamina_max' => (int) $this->config->get('game.pve.stamina_max', 100),
+                'defense' => (array) $this->config->get('game.pve.defense', []),
+                'basic_strike' => (array) $this->config->get('game.pve.basic_strike', []),
+                'difficulties' => array_values((array) $this->config->get('game.pve.difficulties', [])),
+                'playable' => (bool) $this->config->get('game.features.pve', false),
             ],
             'starters' => [
                 'creature_slugs' => array_values((array) $this->config->get('game.starters.creature_slugs', [])),

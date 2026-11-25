@@ -3,6 +3,7 @@
 namespace App\Infrastructure\External\PokeApi;
 
 use App\Application\Creatures\DTOs\ExternalCreatureData;
+use App\Domain\Creatures\Support\TrustedCryUrl;
 use Illuminate\Support\Str;
 
 final class PokeApiCreatureMapper
@@ -115,6 +116,12 @@ final class PokeApiCreatureMapper
             baseSpeed: $stats['baseSpeed'],
             types: $types,
             imageRef: $this->resolveImageUrl($payload),
+            cryLatestUrl: TrustedCryUrl::normalize(
+                is_string(data_get($payload, 'cries.latest')) ? (string) data_get($payload, 'cries.latest') : null,
+            ),
+            cryLegacyUrl: TrustedCryUrl::normalize(
+                is_string(data_get($payload, 'cries.legacy')) ? (string) data_get($payload, 'cries.legacy') : null,
+            ),
             speciesExternalId: $speciesExternalId,
             evolvesFromSpeciesExternalId: $evolvesFromSpeciesExternalId,
             isDefaultForm: $isDefaultForm,

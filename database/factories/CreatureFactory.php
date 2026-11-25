@@ -41,6 +41,8 @@ class CreatureFactory extends Factory
             'base_special_defense' => fake()->numberBetween(30, 150),
             'base_speed' => fake()->numberBetween(30, 150),
             'image_ref' => null,
+            'cry_latest_url' => null,
+            'cry_legacy_url' => null,
         ];
     }
 

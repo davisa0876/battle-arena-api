@@ -217,6 +217,8 @@ final class CreatureImportService
 
             if ($existing === null) {
                 $attributes['image_ref'] = $payload->imageRef;
+                $attributes['cry_latest_url'] = $payload->cryLatestUrl;
+                $attributes['cry_legacy_url'] = $payload->cryLegacyUrl;
                 $attributes['evolution_stage'] = 1;
 
                 try {
@@ -231,6 +233,12 @@ final class CreatureImportService
 
                     if ($payload->imageRef !== null) {
                         $attributes['image_ref'] = $payload->imageRef;
+                    }
+                    if ($payload->cryLatestUrl !== null) {
+                        $attributes['cry_latest_url'] = $payload->cryLatestUrl;
+                    }
+                    if ($payload->cryLegacyUrl !== null) {
+                        $attributes['cry_legacy_url'] = $payload->cryLegacyUrl;
                     }
 
                     $existing->fill($attributes);
@@ -247,6 +255,12 @@ final class CreatureImportService
 
             if ($payload->imageRef !== null) {
                 $attributes['image_ref'] = $payload->imageRef;
+            }
+            if ($payload->cryLatestUrl !== null) {
+                $attributes['cry_latest_url'] = $payload->cryLatestUrl;
+            }
+            if ($payload->cryLegacyUrl !== null) {
+                $attributes['cry_legacy_url'] = $payload->cryLegacyUrl;
             }
 
             $existing->fill($attributes);

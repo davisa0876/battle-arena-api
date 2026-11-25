@@ -63,6 +63,9 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('auth-verification', fn (Request $request): Limit => Limit::perMinute((int) config('game.rate_limits.email_verification'))
             ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
+
+        RateLimiter::for('pve-actions', fn (Request $request): Limit => Limit::perMinute(60)
+            ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
     }
 
     /**

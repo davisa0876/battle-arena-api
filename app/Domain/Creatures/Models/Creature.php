@@ -38,6 +38,8 @@ class Creature extends Model
         'base_special_defense',
         'base_speed',
         'image_ref',
+        'cry_latest_url',
+        'cry_legacy_url',
     ];
 
     protected function casts(): array

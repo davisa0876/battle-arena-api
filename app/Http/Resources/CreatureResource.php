@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Application\Creatures\Services\CatalogSelectionPresenter;
+use App\Domain\Creatures\Support\TrustedCryUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -17,6 +18,8 @@ class CreatureResource extends JsonResource
     public function toArray(Request $request): array
     {
         $imageUrl = $this->image_ref;
+        $cryLatest = TrustedCryUrl::normalize($this->cry_latest_url);
+        $cryLegacy = TrustedCryUrl::normalize($this->cry_legacy_url);
         $selection = app(CatalogSelectionPresenter::class)->forCreature($request, $this->resource);
 
         return [
@@ -29,6 +32,9 @@ class CreatureResource extends JsonResource
             'image_ref' => $imageUrl,
             // Explicit public field for display URLs persisted in PostgreSQL.
             'image_url' => $imageUrl,
+            'cry_latest_url' => $cryLatest,
+            'cry_legacy_url' => $cryLegacy,
+            'cry_url' => TrustedCryUrl::prefer($cryLatest, $cryLegacy),
             'evolution_stage' => (int) ($this->evolution_stage ?? 1),
             // Ownership / selection eligibility — authoritative for catalog UI buttons.
             'is_owned' => $selection['selection_blocked_reason'] === 'owned',

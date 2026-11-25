@@ -15,7 +15,7 @@ class GameRulesContentTest extends TestCase
             ->assertJsonPath('data.features.collection', true)
             ->assertJsonPath('data.features.starter_selection', true)
             ->assertJsonPath('data.features.creature_selection', true)
-            ->assertJsonPath('data.features.pve', false)
+            ->assertJsonPath('data.features.pve', true)
             ->assertJsonPath('data.features.pvp', false)
             ->assertJsonPath('data.features.evolution_execution', false);
     }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Application\Battles\PveBattleStatsService;
 use App\Http\Resources\Concerns\BuildsAvatarUrl;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -35,6 +36,7 @@ class AuthenticatedUserResource extends JsonResource
                 'collection_is_public' => $profile->collection_is_public,
             ],
             'trainer' => $progress === null ? null : new TrainerProgressResource($progress),
+            'pve_record' => app(PveBattleStatsService::class)->forUser($this->resource),
             'onboarding' => [
                 'starter_selected' => (bool) ($this->resource->owned_creatures_exists ?? false),
             ],

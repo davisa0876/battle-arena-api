@@ -1,0 +1,25 @@
+---
+description: Safe API error envelope for clients (Horus-aligned)
+globs: "{app/Http/**/*.php,app/Exceptions/**/*.php,bootstrap/app.php,lang/**/*.php}"
+alwaysApply: true
+---
+
+# API error envelope
+
+Clients must receive product-safe errors only.
+
+## Response body allowlist
+Prefer JSON shaped like:
+```json
+{ "message": "Localized product copy", "code": "OPTIONAL_CODE", "errors": { "field": ["…"] } }
+```
+
+Do not leak stack traces, SQL, file paths, or exception class names when `APP_DEBUG` is false.
+
+## Domain errors
+- Throw deliberate domain/HTTP exceptions with **localized** `message` (and optional stable `code`)
+- Validation → 422 with `errors` map
+- Auth/forbidden → generic authorized copy (no internal reason)
+
+## Reference
+Horus platform-api: `ApiException` + `ErrorCodesEnum` + respond allowlist on `{message,code,errors}`.
