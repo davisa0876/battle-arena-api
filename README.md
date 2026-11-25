@@ -209,6 +209,22 @@ JSON field names stay English. Creature **names** currently use the canonical im
 
 Full decisions live in `docs/PHASE3_AUTH_AND_DATA_MODEL.md`; the HTTP contract is in `docs/openapi.yaml`.
 
+## Swagger (OpenAPI UI)
+
+- Source of truth: `docs/openapi.yaml`
+- Sync into Swagger UI storage: `php artisan openapi:sync`
+- UI: [http://localhost:8000/api/documentation](http://localhost:8000/api/documentation)
+- Package: `darkaonline/l5-swagger` (Bearer sanctum security scheme enabled in the UI)
+
+When you change request/response shapes, update `docs/openapi.yaml` and run `openapi:sync` again.
+
+## Telescope
+
+- Local debugging UI: [http://localhost:8000/telescope](http://localhost:8000/telescope)
+- Installed as a **dev** dependency and registered only when `APP_ENV=local`
+- Toggle with `TELESCOPE_ENABLED` (disabled automatically in PHPUnit)
+- Entries older than 24h are pruned daily via `telescope:prune`
+
 ### Endpoints
 
 | Method | Path | Auth | Notes |
