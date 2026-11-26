@@ -647,7 +647,7 @@ final class PvpCombatService
             'owned_creature_id' => $ownedCreatureId,
             'name' => $snapshot->name,
             'slug' => $snapshot->slug,
-            'image_ref' => null,
+            'image_ref' => \App\Domain\Creatures\Models\Creature::query()->whereKey($creatureId)->value('image_ref'),
             'level' => $snapshot->level,
             'hp_current' => $snapshot->hpCurrent,
             'hp_max' => $snapshot->hpMax,

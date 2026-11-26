@@ -16,7 +16,7 @@ final class PvpBattlePresenter
      */
     public function present(PvpBattle $battle, User $viewer): array
     {
-        $battle->loadMissing(['combatants.moves']);
+        $battle->loadMissing(['combatants.moves', 'rewards']);
         $viewerId = (int) $viewer->id;
 
         $meRow = $battle->combatants->firstWhere('user_id', $viewerId);
@@ -53,6 +53,13 @@ final class PvpBattlePresenter
                 'loser_user_id' => $battle->loser_user_id !== null ? (int) $battle->loser_user_id : null,
                 'end_reason' => $battle->end_reason,
             ] : null,
+            'rewards' => $battle->isFinished()
+                ? $battle->rewards()->get()->map(static fn ($r) => [
+                    'user_id' => (int) $r->user_id,
+                    'outcome' => $r->outcome,
+                    'xp_awarded' => (int) $r->xp_awarded,
+                ])->values()->all()
+                : null,
         ];
     }
 
@@ -83,6 +90,7 @@ final class PvpBattlePresenter
             'user_id' => (int) $row->user_id,
             'name' => $row->name,
             'slug' => $row->slug,
+            'image_ref' => $row->image_ref,
             'level' => (int) $row->level,
             'types' => array_values((array) $row->types_snapshot),
             'hp' => ['current' => (int) $row->hp_current, 'max' => (int) $row->hp_max],

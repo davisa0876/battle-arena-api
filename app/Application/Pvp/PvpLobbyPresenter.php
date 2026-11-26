@@ -19,6 +19,8 @@ final class PvpLobbyPresenter
             'activeMembers.user.profile',
             'invitation.inviter.profile',
             'invitation.invitee.profile',
+            'selections',
+            'battle',
         ]);
 
         $members = $room->activeMembers->map(fn (PvpRoomMember $member): array => [
@@ -29,6 +31,9 @@ final class PvpLobbyPresenter
         ])->values()->all();
 
         $invitation = $room->invitation;
+        $selections = $room->selections ?? collect();
+        $mine = $selections->firstWhere('user_id', $viewer->id);
+        $bothLocked = $selections->count() >= 2 && $selections->every(fn ($s) => (bool) $s->is_locked);
 
         return [
             'id' => $room->id,
@@ -40,8 +45,25 @@ final class PvpLobbyPresenter
             'host' => $this->publicPlayer($room->host),
             'members' => $members,
             'invitation' => $invitation ? $this->presentInvitation($invitation, $viewer, false) : null,
-            'allowed_actions' => $this->roomActions($room, $viewer, $invitation),
-            'phase_note' => 'private_lobby_only',
+            'allowed_actions' => $this->roomActions($room, $viewer, $invitation, $mine),
+            'my_selection' => $mine === null ? null : [
+                'owned_creature_id' => (int) $mine->owned_creature_id,
+                'locked' => (bool) $mine->is_locked,
+            ],
+            'selections_revealed' => $bothLocked
+                ? $selections->map(fn ($s) => [
+                    'user_id' => (int) $s->user_id,
+                    'owned_creature_id' => (int) $s->owned_creature_id,
+                    'locked' => (bool) $s->is_locked,
+                ])->values()->all()
+                : null,
+            'battle_id' => $room->battle?->id,
+            'phase_note' => match ($room->status) {
+                PvpRoom::STATUS_IN_BATTLE => 'Battle in progress.',
+                PvpRoom::STATUS_READY => 'Private lobby ready — select a creature and lock ready.',
+                PvpRoom::STATUS_WAITING_FOR_GUEST => 'Waiting for guest to accept.',
+                default => 'private_lobby_only',
+            },
         ];
     }
 
@@ -97,9 +119,10 @@ final class PvpLobbyPresenter
     }
 
     /**
+     * @param  \App\Domain\Pvp\Models\PvpBattleSelection|null  $mine
      * @return list<string>
      */
-    private function roomActions(PvpRoom $room, User $viewer, ?PvpInvitation $invitation): array
+    private function roomActions(PvpRoom $room, User $viewer, ?PvpInvitation $invitation, mixed $mine = null): array
     {
         if (! $room->isOpen()) {
             return [];
@@ -108,8 +131,21 @@ final class PvpLobbyPresenter
         $actions = [];
         $isMember = $room->activeMembers->contains(fn (PvpRoomMember $m): bool => (int) $m->user_id === (int) $viewer->id);
         if ($isMember) {
-            $actions[] = 'leave';
             $actions[] = 'request_subscription_grant';
+            if (! $room->isInBattle()) {
+                $actions[] = 'leave';
+            }
+            if ($room->status === PvpRoom::STATUS_READY) {
+                if ($mine === null || ! (bool) $mine->is_locked) {
+                    $actions[] = 'select_creature';
+                }
+                if ($mine !== null && ! (bool) $mine->is_locked) {
+                    $actions[] = 'ready';
+                }
+            }
+            if ($room->isInBattle() && $room->battle?->id) {
+                $actions[] = 'enter_battle';
+            }
         }
 
         if ($invitation
