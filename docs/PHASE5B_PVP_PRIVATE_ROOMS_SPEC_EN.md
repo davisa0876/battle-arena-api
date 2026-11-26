@@ -169,8 +169,9 @@ All `/api/pvp/*` endpoints require `auth:sanctum`, FormRequests, policy authoriz
 | Method | Endpoint | Actor | Effect |
 | --- | --- | --- | --- |
 | `POST` | `/api/pvp/rooms` | Host (level >= 6) | Create private room + invite by exact handle |
-| `GET` | `/api/pvp/invitations?box=received` | User | Inbox, bounded/paginated |
-| `GET` | `/api/pvp/invitations?box=sent` | User | Sent invitations, bounded/paginated |
+| `GET` | `/api/pvp/lobby` | User | Current open lobby membership (or null); rehydrate after accept |
+| `GET` | `/api/pvp/invitations?box=received` | User | Pending received invites only (many allowed) |
+| `GET` | `/api/pvp/invitations?box=sent` | User | Pending sent invite(s) only (typically one active) |
 | `POST` | `/api/pvp/invitations/{id}/accept` | Recipient only | Join as guest; room becomes ready |
 | `POST` | `/api/pvp/invitations/{id}/decline` | Recipient only | Mark declined; close waiting room |
 | `POST` | `/api/pvp/invitations/{id}/cancel` | Host only | Cancel pending invite; close room |

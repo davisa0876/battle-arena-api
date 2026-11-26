@@ -27,9 +27,17 @@ class PveRulesProvider
         return (string) $this->config->get('game.pve.version_group', 'scarlet-violet');
     }
 
-    public function maxMoves(): int
+    /**
+     * Optional soft cap on combat loadout size. null/0 = uncapped (all supported learnables).
+     */
+    public function maxMoves(): ?int
     {
-        return max(1, (int) $this->config->get('game.pve.max_moves', 4));
+        $raw = $this->config->get('game.pve.max_moves');
+        if ($raw === null || $raw === '' || (int) $raw <= 0) {
+            return null;
+        }
+
+        return max(1, (int) $raw);
     }
 
     public function maxConcurrentActive(): int

@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Telescope\IncomingEntry;
 use Laravel\Telescope\Telescope;
@@ -19,15 +20,24 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
 
         $this->hideSensitiveRequestDetails();
 
-        $isLocal = $this->app->environment('local');
+        // Record only in local — never keep HTTP/query noise outside APP_ENV=local.
+        Telescope::filter(fn (IncomingEntry $entry): bool => $this->app->environment('local'));
+    }
 
-        Telescope::filter(function (IncomingEntry $entry) use ($isLocal) {
-            return $isLocal ||
-                   $entry->isReportableException() ||
-                   $entry->isFailedRequest() ||
-                   $entry->isFailedJob() ||
-                   $entry->isScheduledTask() ||
-                   $entry->hasMonitoredTag();
+    /**
+     * UI only on this machine: APP_ENV=local AND Host is loopback.
+     * LAN/mobile access (e.g. http://192.168.x.x:8000/telescope) is denied even when the API is bound to 0.0.0.0.
+     */
+    protected function authorization(): void
+    {
+        $this->gate();
+
+        Telescope::auth(function (Request $request): bool {
+            if (! $this->app->environment('local')) {
+                return Gate::check('viewTelescope', [$request->user()]);
+            }
+
+            return $this->isLoopbackHost($request);
         });
     }
 
@@ -53,14 +63,19 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
     /**
      * Register the Telescope gate.
      *
-     * This gate determines who can access Telescope in non-local environments.
+     * Non-local access stays deny-by-default (empty allowlist).
      */
     protected function gate(): void
     {
-        Gate::define('viewTelescope', function (User $user) {
-            return in_array($user->email, [
-                //
-            ]);
+        Gate::define('viewTelescope', function (?User $user): bool {
+            return false;
         });
+    }
+
+    private function isLoopbackHost(Request $request): bool
+    {
+        $host = strtolower($request->getHost());
+
+        return in_array($host, ['localhost', '127.0.0.1', '::1'], true);
     }
 }

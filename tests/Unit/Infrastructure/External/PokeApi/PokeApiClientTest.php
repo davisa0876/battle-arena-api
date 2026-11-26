@@ -48,6 +48,19 @@ class PokeApiClientTest extends TestCase
     }
 
     #[Test]
+    public function test_get_move_requests_move_endpoint(): void
+    {
+        Http::fake([
+            'pokeapi.test/move/242' => Http::response(['id' => 242, 'name' => 'crunch'], 200),
+        ]);
+
+        $payload = $this->client()->getMove(242);
+
+        $this->assertSame(['id' => 242, 'name' => 'crunch'], $payload);
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'http://pokeapi.test/move/242');
+    }
+
+    #[Test]
     public function test_requests_the_pokemon_endpoint_with_json_accept_header(): void
     {
         Http::fake(['pokeapi.test/*' => Http::response(['id' => 7], 200)]);

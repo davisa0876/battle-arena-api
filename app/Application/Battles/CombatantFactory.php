@@ -88,12 +88,11 @@ final class CombatantFactory
                 continue;
             }
             $moves[] = $snapshot;
-            if (count($moves) >= $limit) {
+            if ($limit !== null && count($moves) >= $limit) {
                 break;
             }
         }
 
-        // Collection / PvP creatures may not be in the historical PvE opponent pool seed.
         // Fall back to type-matching MVP moves so battles never open with an empty loadout.
         if ($moves === []) {
             $moves = $this->fallbackLoadout($creature, $formula, $limit);
@@ -106,7 +105,7 @@ final class CombatantFactory
      * @param  array{base: int, per_step: int, power_step: int, min: int, max: int}  $formula
      * @return list<MoveSnapshot>
      */
-    private function fallbackLoadout(Creature $creature, array $formula, int $limit): array
+    private function fallbackLoadout(Creature $creature, array $formula, ?int $limit): array
     {
         $types = $creature->types->pluck('slug')->all();
         $mvpMoves = Move::query()
@@ -118,7 +117,11 @@ final class CombatantFactory
 
         $matching = $mvpMoves->filter(fn (Move $m): bool => in_array($m->type_slug, $types, true));
         $fallback = $mvpMoves->filter(fn (Move $m): bool => $m->type_slug === 'normal');
-        $picked = $matching->merge($fallback)->unique('id')->take($limit);
+        // Prefer every type-matching move; only use normals when the creature has no typed MVP moves.
+        $picked = ($matching->isNotEmpty() ? $matching : $fallback)->unique('id');
+        if ($limit !== null) {
+            $picked = $picked->take($limit);
+        }
 
         $moves = [];
         foreach ($picked as $move) {

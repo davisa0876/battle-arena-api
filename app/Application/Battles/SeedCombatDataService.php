@@ -14,10 +14,10 @@ use RuntimeException;
  * Fixture-based, idempotent bootstrap of the PvE combat catalog (no network):
  *  - upserts the MVP moves from database/data/pve_mvp_moves.json,
  *  - upserts the type chart from database/data/type_effectiveness_gen9.json for the pinned ruleset,
- *  - attaches up to four type-matching MVP moves (normal fallbacks) to **every** catalog creature
- *    (PvP uses owned collection creatures, not only the PvE opponent pool).
+ *  - attaches **all** type-matching MVP moves (normal fallbacks only when no typed match) to every
+ *    catalog creature. No artificial 4-move loadout cap — PvP uses owned collection creatures.
  *
- * Live PokéAPI import is deferred (see ImportCombatMovesCommand).
+ * Prefer {@see CombatMovesImportService} for live PokéAPI learnsets; keep this for CI / --fixture.
  */
 class SeedCombatDataService
 {
@@ -47,6 +47,14 @@ class SeedCombatDataService
                 'creatures' => $creatures,
             ];
         });
+    }
+
+    /**
+     * Used by the live PokéAPI combat importer (type chart stays fixture-only Gen 9).
+     */
+    public function seedTypeChartOnly(): int
+    {
+        return $this->db->transaction(fn (): int => $this->seedTypeChart());
     }
 
     private function seedMoves(): int
@@ -110,15 +118,13 @@ class SeedCombatDataService
             ->get();
 
         $versionGroup = $this->rules->versionGroup();
-        $limit = $this->rules->maxMoves();
         $ensured = 0;
         $creatures = 0;
 
-        // Full catalog: owned PvP creatures are not limited to the PvE opponent pool.
+        // Full catalog: every supported typed MVP move (no 4-move cap).
         Creature::query()->with('types')->orderBy('id')->chunkById(200, function ($chunk) use (
             $mvpMoves,
             $versionGroup,
-            $limit,
             &$ensured,
             &$creatures,
         ): void {
@@ -128,8 +134,8 @@ class SeedCombatDataService
 
                 $matching = $mvpMoves->filter(fn (Move $m): bool => in_array($m->type_slug, $types, true));
                 $fallback = $mvpMoves->filter(fn (Move $m): bool => $m->type_slug === 'normal');
-
-                $picked = $matching->merge($fallback)->unique('id')->take($limit);
+                $picked = ($matching->isNotEmpty() ? $matching : $fallback)->unique('id');
+                $pickedIds = $picked->pluck('id')->map(static fn ($id): int => (int) $id)->all();
 
                 foreach ($picked as $move) {
                     CreatureLearnableMove::query()->updateOrCreate(
@@ -138,6 +144,18 @@ class SeedCombatDataService
                     );
                     $ensured++;
                 }
+
+                // Drop stale rows from older capped/merge policies (e.g. normals glued onto typed sets).
+                CreatureLearnableMove::query()
+                    ->where('creature_id', $creature->id)
+                    ->where('version_group', $versionGroup)
+                    ->when(
+                        $pickedIds !== [],
+                        fn ($q) => $q->whereNotIn('move_id', $pickedIds),
+                        fn ($q) => $q,
+                    )
+                    ->delete();
+
                 $creatures++;
             }
         });

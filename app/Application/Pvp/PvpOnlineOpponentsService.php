@@ -4,11 +4,14 @@ namespace App\Application\Pvp;
 
 use App\Domain\Battle\BattleEligibilityPolicy;
 use App\Domain\Players\Models\PlayerProfile;
+use App\Domain\Pvp\Models\PvpBattle;
 use App\Domain\Pvp\Models\PvpRoom;
 use App\Domain\Pvp\Models\PvpRoomMember;
 use App\Models\User;
 use Illuminate\Contracts\Redis\Factory as RedisFactory;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
@@ -22,6 +25,7 @@ final class PvpOnlineOpponentsService
     public function __construct(
         private readonly RedisFactory $redis,
         private readonly BattleEligibilityPolicy $eligibility,
+        private readonly PvpActionDeadlineService $deadlines,
     ) {}
 
     /**
@@ -42,6 +46,13 @@ final class PvpOnlineOpponentsService
         if ($candidateIds === []) {
             return [];
         }
+
+        // Opportunistic cleanup so abandoned battles do not hide trainers forever when
+        // the scheduler is slow/offline (local docker has no schedule:work by default).
+        if ($this->deadlines->adjudicationEnabled()) {
+            $this->deadlines->adjudicateDueBatch(min(20, (int) config('pvp.turn_timeout.batch_size', 50)));
+        }
+        $this->closeOrphanInBattleRooms($candidateIds);
 
         $busyIds = $this->busyUserIds($candidateIds);
         $minLevel = $this->eligibility->pvpMinTrainerLevel();
@@ -129,11 +140,12 @@ final class PvpOnlineOpponentsService
             return [];
         }
 
+        // Align with createRoom: waiting_for_guest hosts are replaceable (supersede),
+        // so they must still appear online. Only committed lobbies/battles are busy.
         $busy = PvpRoomMember::query()
             ->whereIn('user_id', $userIds)
             ->whereNull('left_at')
             ->whereHas('room', fn ($q) => $q->whereIn('status', [
-                PvpRoom::STATUS_WAITING_FOR_GUEST,
                 PvpRoom::STATUS_READY,
                 PvpRoom::STATUS_IN_BATTLE,
             ]))
@@ -146,5 +158,55 @@ final class PvpOnlineOpponentsService
         }
 
         return $map;
+    }
+
+    /**
+     * Close rooms stuck in in_battle without an active battle so presence lists recover.
+     *
+     * @param  list<int>  $userIds
+     */
+    private function closeOrphanInBattleRooms(array $userIds): void
+    {
+        if ($userIds === []) {
+            return;
+        }
+
+        $roomIds = PvpRoomMember::query()
+            ->whereIn('user_id', $userIds)
+            ->whereNull('left_at')
+            ->whereHas('room', fn ($q) => $q->where('status', PvpRoom::STATUS_IN_BATTLE))
+            ->pluck('room_id')
+            ->unique()
+            ->values()
+            ->all();
+
+        foreach ($roomIds as $roomId) {
+            DB::transaction(function () use ($roomId): void {
+                $room = PvpRoom::query()->whereKey($roomId)->lockForUpdate()->first();
+                if ($room === null || $room->status !== PvpRoom::STATUS_IN_BATTLE) {
+                    return;
+                }
+
+                $hasActiveBattle = PvpBattle::query()
+                    ->where('room_id', $room->id)
+                    ->where('status', PvpBattle::STATUS_ACTIVE)
+                    ->exists();
+
+                if ($hasActiveBattle) {
+                    return;
+                }
+
+                $room->status = PvpRoom::STATUS_CLOSED;
+                $room->closed_reason = PvpRoom::CLOSED_BATTLE_COMPLETED;
+                $room->closed_at = Carbon::now();
+                $room->version = (int) $room->version + 1;
+                $room->save();
+
+                PvpRoomMember::query()
+                    ->where('room_id', $room->id)
+                    ->whereNull('left_at')
+                    ->update(['left_at' => Carbon::now()]);
+            });
+        }
     }
 }

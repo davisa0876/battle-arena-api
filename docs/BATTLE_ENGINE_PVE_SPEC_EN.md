@@ -165,7 +165,7 @@ stateDiagram-v2
 
 - Preserve the full National Dex and existing catalog API.
 - Enable an initial configurable pool of approximately **20 stage-1 creatures** and **20 direct-damage moves**; expansion can happen later.
-- Equip each combatant with **up to four legal moves**. The moveset must be compatible with the selected move learnset and explicitly chosen game version/group.
+- Equip each combatant with **all supported legal moves** from their learnset for the pinned version/group (no artificial 4-move loadout cap; `game.pve.max_moves` may optionally soft-cap).
 - Start with `damage_class = physical|special`, positive `power`, valid/supported accuracy, and no complex secondary behavior. Defer status moves, multi-hit, recoil, special priority and advanced effects.
 - Pin and document the ruleset and version/generation for imported move and type data; upstream values can differ by generation.
 - A player must use an **owned, eligible creature**. Reuse existing acquisition/selection and trainer eligibility policies.

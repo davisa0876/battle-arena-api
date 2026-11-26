@@ -123,12 +123,19 @@ final class PvpLobbyService
     }
 
     /**
+     * Active invite inbox only — never accepted/declined/cancelled/expired history.
+     * Sender typically has at most one pending (new invite supersedes). Receiver may have many.
+     *
      * @return LengthAwarePaginator<int, PvpInvitation>
      */
     public function listInvitations(User $user, string $box, int $perPage = 20): LengthAwarePaginator
     {
+        $this->expireDuePendingForUser((int) $user->id);
+
         $query = PvpInvitation::query()
             ->with(['inviter.profile', 'invitee.profile', 'room'])
+            ->where('status', PvpInvitation::STATUS_PENDING)
+            ->where('expires_at', '>', now())
             ->orderByDesc('created_at');
 
         if ($box === 'sent') {
@@ -138,6 +145,31 @@ final class PvpLobbyService
         }
 
         return $query->paginate(min(max($perPage, 1), 50));
+    }
+
+    /**
+     * Open lobby the trainer is still a member of (waiting / ready / in battle), or null.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function currentLobby(User $user): ?array
+    {
+        $roomId = PvpRoomMember::query()
+            ->where('user_id', $user->id)
+            ->whereNull('left_at')
+            ->whereHas('room', fn ($q) => $q->whereIn('status', [
+                PvpRoom::STATUS_WAITING_FOR_GUEST,
+                PvpRoom::STATUS_READY,
+                PvpRoom::STATUS_IN_BATTLE,
+            ]))
+            ->orderByDesc('joined_at')
+            ->value('room_id');
+
+        if ($roomId === null) {
+            return null;
+        }
+
+        return $this->presenter->presentRoom($this->loadRoomOrFail((string) $roomId), $user);
     }
 
     /**
@@ -598,15 +630,41 @@ final class PvpLobbyService
 
     private function notifyInvitationChanged(string $invitationId, int $inviterId, int $inviteeId): void
     {
+        $status = PvpInvitation::query()->whereKey($invitationId)->value('status');
+        $payload = [
+            'invitation_id' => $invitationId,
+            'status' => $status,
+        ];
+
         $this->publisher->publish(
             'pvp.invitation.changed',
-            ['invitation_id' => $invitationId],
+            $payload,
             targetUserId: $inviterId,
         );
         $this->publisher->publish(
             'pvp.invitation.changed',
-            ['invitation_id' => $invitationId],
+            $payload,
             targetUserId: $inviteeId,
         );
+    }
+
+    /**
+     * Close overdue pending invites for this trainer so inbox never shows stuck rows.
+     */
+    private function expireDuePendingForUser(int $userId): void
+    {
+        $dueIds = PvpInvitation::query()
+            ->where('status', PvpInvitation::STATUS_PENDING)
+            ->where('expires_at', '<=', now())
+            ->where(function ($q) use ($userId): void {
+                $q->where('inviter_user_id', $userId)
+                    ->orWhere('invitee_user_id', $userId);
+            })
+            ->limit(50)
+            ->pluck('id');
+
+        foreach ($dueIds as $invitationId) {
+            $this->expireInvitationIfDue((string) $invitationId);
+        }
     }
 }

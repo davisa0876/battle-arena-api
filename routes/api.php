@@ -95,6 +95,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('throttle:pvp-mutations');
     Route::get('/pvp/online', \App\Http\Controllers\Api\Pvp\ListOnlineOpponentsController::class)
         ->middleware('throttle:60,1');
+    Route::get('/pvp/lobby', \App\Http\Controllers\Api\Pvp\CurrentLobbyController::class);
     Route::get('/pvp/invitations', ListInvitationsController::class);
     Route::post('/pvp/invitations/{invitation}/accept', AcceptInvitationController::class)
         ->middleware('throttle:pvp-mutations');

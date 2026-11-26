@@ -36,6 +36,17 @@ final class PokeApiClient
     }
 
     /**
+     * @param  int|string  $idOrSlug  PokéAPI move id or slug
+     * @return array<string, mixed>
+     */
+    public function getMove(int|string $idOrSlug): array
+    {
+        $key = is_int($idOrSlug) ? (string) $idOrSlug : mb_strtolower(trim($idOrSlug));
+
+        return $this->getJson("/move/{$key}", "pokeapi:move:{$key}");
+    }
+
+    /**
      * National dex species IDs (stable catalog universe for Battle Arena).
      *
      * @return list<int>

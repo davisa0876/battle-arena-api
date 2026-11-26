@@ -49,7 +49,7 @@
     "get": {
       "tags": ["PvP"],
       "summary": "List online PvP-eligible opponents",
-      "description": "Returns trainers currently connected to the realtime gateway, eligible for private PvP (level >= pvp_min_trainer_level), excluding the caller and players already in an open lobby/battle. Presence is authenticated app session + PvP level (any screen) — not limited to the PvP lobby route. Clients should keep a WS open via the global presence keeper. Clicking a row should call POST /api/pvp/rooms with that handle.",
+      "description": "Returns trainers currently connected to the realtime gateway, eligible for private PvP (level >= pvp_min_trainer_level), excluding the caller and players already in a committed lobby (ready) or live battle. Hosts waiting for a guest to accept stay listed — a new invite supersedes their pending room. Presence is authenticated app session + PvP level (any screen). Clients should keep a WS open via the global presence keeper. Clicking a row should call POST /api/pvp/rooms with that handle.",
       "security": [{ "sanctum": [] }],
       "responses": {
         "200": {
@@ -65,10 +65,41 @@
       }
     }
   },
+  "/api/pvp/lobby": {
+    "get": {
+      "tags": ["PvP"],
+      "summary": "Current open private lobby for the authenticated trainer",
+      "description": "Returns the waiting/ready/in_battle room the caller still belongs to, or data:null. Use this to rehydrate creature select after accept — invitation inbox is pending-only.",
+      "security": [{ "sanctum": [] }],
+      "responses": {
+        "200": {
+          "description": "Current lobby or null",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["data"],
+                "properties": {
+                  "data": {
+                    "oneOf": [
+                      { "$ref": "#/components/schemas/PvpRoom" },
+                      { "type": "null" }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": { "$ref": "#/components/responses/Unauthenticated" }
+      }
+    }
+  },
   "/api/pvp/invitations": {
     "get": {
       "tags": ["PvP"],
-      "summary": "List sent or received private invitations",
+      "summary": "List active pending private invitations",
+      "description": "Pending only. Terminal statuses (accepted/declined/cancelled/expired) are never listed. Sent is typically at most one active invite; received may include multiple pending invites.",
       "security": [{ "sanctum": [] }],
       "parameters": [
         {
@@ -80,7 +111,7 @@
       ],
       "responses": {
         "200": {
-          "description": "Invitation list",
+          "description": "Pending invitation list",
           "content": {
             "application/json": {
               "schema": { "$ref": "#/components/schemas/PvpInvitationListResponse" }

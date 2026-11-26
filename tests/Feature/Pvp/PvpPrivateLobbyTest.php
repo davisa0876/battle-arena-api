@@ -122,6 +122,21 @@ class PvpPrivateLobbyTest extends TestCase
             'role' => 'guest',
         ]);
 
+        // Accepted invites leave the inbox; current lobby rehydrates creature select.
+        $this->withHeaders($this->asUser($host))
+            ->getJson('/api/pvp/invitations?box=sent')
+            ->assertOk()
+            ->assertJsonPath('data', []);
+        $this->withHeaders($this->asUser($guest))
+            ->getJson('/api/pvp/invitations?box=received')
+            ->assertOk()
+            ->assertJsonPath('data', []);
+        $this->withHeaders($this->asUser($host))
+            ->getJson('/api/pvp/lobby')
+            ->assertOk()
+            ->assertJsonPath('data.id', $roomId)
+            ->assertJsonPath('data.status', 'ready');
+
         $this->withHeaders($this->asUser($host))
             ->getJson("/api/pvp/rooms/{$roomId}")
             ->assertOk()
@@ -131,6 +146,45 @@ class PvpPrivateLobbyTest extends TestCase
         $this->withHeaders($this->asUser($stranger))
             ->getJson("/api/pvp/rooms/{$roomId}")
             ->assertNotFound();
+    }
+
+    public function test_invitation_inbox_hides_declined_and_keeps_other_pending_received(): void
+    {
+        $this->fakeRedisPublish();
+        $hostA = $this->level6(['handle' => 'hostaaa']);
+        $hostB = $this->level6(['handle' => 'hostbbb']);
+        $guest = $this->level6(['handle' => 'guestxx']);
+
+        $inviteA = $this->withHeaders($this->asUser($hostA))
+            ->postJson('/api/pvp/rooms', ['invitee_handle' => 'guestxx'])
+            ->assertCreated()
+            ->json('data.invitation.id');
+        $inviteB = $this->withHeaders($this->asUser($hostB))
+            ->postJson('/api/pvp/rooms', ['invitee_handle' => 'guestxx'])
+            ->assertCreated()
+            ->json('data.invitation.id');
+
+        $this->withHeaders($this->asUser($guest))
+            ->getJson('/api/pvp/invitations?box=received')
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+
+        $this->withHeaders($this->asUser($guest) + ['Idempotency-Key' => (string) Str::uuid()])
+            ->postJson("/api/pvp/invitations/{$inviteA}/decline")
+            ->assertOk();
+
+        $received = $this->withHeaders($this->asUser($guest))
+            ->getJson('/api/pvp/invitations?box=received')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->json('data');
+        $this->assertSame($inviteB, $received[0]['id']);
+        $this->assertSame('pending', $received[0]['status']);
+
+        $this->withHeaders($this->asUser($hostA))
+            ->getJson('/api/pvp/invitations?box=sent')
+            ->assertOk()
+            ->assertJsonPath('data', []);
     }
 
     public function test_pending_invite_can_be_replaced_without_already_in_lobby(): void

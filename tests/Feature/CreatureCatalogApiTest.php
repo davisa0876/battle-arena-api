@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Application\Battles\SeedCombatDataService;
 use App\Domain\Creatures\Models\Creature;
 use App\Domain\Creatures\Models\CreatureType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -238,5 +239,31 @@ class CreatureCatalogApiTest extends TestCase
             ->assertJsonPath('data.evolutions.0.evolution_stage', 2)
             ->assertJsonPath('data.evolutions.0.evolutions.0.slug', 'charizard')
             ->assertJsonPath('data.evolutions.0.evolutions.0.evolution_stage', 3);
+    }
+
+    public function test_creature_detail_includes_combat_attacks_and_shared_defenses(): void
+    {
+        app(SeedCombatDataService::class)->seed();
+
+        $psychic = CreatureType::factory()->create(['name' => 'Psychic', 'slug' => 'psychic']);
+        $abra = Creature::factory()->create(['name' => 'Abra', 'slug' => 'abra-detail']);
+        $abra->types()->attach($psychic->id, ['slot' => 1]);
+
+        $response = $this->getJson('/api/creatures/abra-detail')
+            ->assertOk()
+            ->assertJsonPath('data.combat.defenses.0.slug', 'endure')
+            ->assertJsonPath('data.combat.defenses.1.slug', 'block')
+            ->assertJsonPath('data.combat.defenses.2.slug', 'dodge')
+            ->assertJsonPath('data.combat.defenses.3.slug', 'recover');
+
+        $attacks = collect($response->json('data.combat.attacks'));
+        $this->assertNotEmpty($attacks);
+        $this->assertTrue($attacks->contains(fn ($move) => ($move['slug'] ?? null) === 'confusion'));
+        $this->assertTrue($attacks->every(fn ($move) => ($move['type_slug'] ?? null) === 'psychic'));
+
+        $list = $this->getJson('/api/creatures?per_page=5')->assertOk()->json('data');
+        $this->assertIsArray($list);
+        $this->assertNotEmpty($list);
+        $this->assertArrayNotHasKey('combat', $list[0]);
     }
 }

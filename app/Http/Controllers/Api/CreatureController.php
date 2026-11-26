@@ -3,15 +3,18 @@
 namespace App\Http\Controllers\Api;
 
 use App\Application\Creatures\Services\CreatureCatalogService;
+use App\Application\Creatures\Services\CreatureCombatPreviewService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreatureIndexRequest;
 use App\Http\Resources\CreatureResource;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class CreatureController extends Controller
 {
     public function __construct(
         private readonly CreatureCatalogService $catalog,
+        private readonly CreatureCombatPreviewService $combatPreview,
     ) {}
 
     public function index(CreatureIndexRequest $request): JsonResponse
@@ -22,7 +25,7 @@ class CreatureController extends Controller
             ->response();
     }
 
-    public function show(string $slug): CreatureResource|JsonResponse
+    public function show(Request $request, string $slug): JsonResponse
     {
         $creature = $this->catalog->findBySlug($slug);
 
@@ -32,6 +35,9 @@ class CreatureController extends Controller
             ], 404);
         }
 
-        return new CreatureResource($creature);
+        $data = (new CreatureResource($creature))->resolve($request);
+        $data['combat'] = $this->combatPreview->forCreature($creature);
+
+        return response()->json(['data' => $data]);
     }
 }

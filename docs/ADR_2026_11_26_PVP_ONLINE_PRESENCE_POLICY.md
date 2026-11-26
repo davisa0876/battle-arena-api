@@ -16,7 +16,7 @@ A trainer is **online for PvP discovery** when all of the following are true:
 2. Their trainer level meets **`game.battle.pvp_min_trainer_level`** (`pvp_level_unlocked`).
 3. The client maintains a ticket-authenticated WebSocket to the realtime gateway (global presence keeper — **any screen**, not only `/pvp`).
 
-They are **not** required to be on the PvP lobby route. Trainers already occupied in a non-closed private lobby (`waiting_for_guest` / `ready` / `in_battle`) remain excluded from the inviteable list so a second host cannot double-book them.
+They are **not** required to be on the PvP lobby route. Trainers already in a **committed** lobby (`ready` or `in_battle`) remain excluded from the inviteable list so a second host cannot double-book them. Hosts who only have a pending outbound invite (`waiting_for_guest`) **stay visible** — a new invite supersedes that waiting room (same rule as `POST /api/pvp/rooms`).
 
 Published machine-readable rules: `GET /api/game/rules` → `battle.pvp_online_presence`:
 

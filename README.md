@@ -220,7 +220,7 @@ When you change request/response shapes, edit the JSON fragments under `resource
 
 ## Telescope
 
-- Local debugging UI: [http://localhost:8000/telescope](http://localhost:8000/telescope)
+- Local debugging UI: [http://localhost:8000/telescope](http://localhost:8000/telescope) (Host must be `localhost` / `127.0.0.1` — LAN IPs are denied)
 - Installed as a **dev** dependency and registered only when `APP_ENV=local`
 - Toggle with `TELESCOPE_ENABLED` (disabled automatically in PHPUnit)
 - Entries older than 24h are pruned daily via `telescope:prune`

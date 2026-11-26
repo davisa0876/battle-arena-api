@@ -117,7 +117,8 @@ return [
     'pve' => [
         'rules_version' => 'pve-0.1',
         'version_group' => 'scarlet-violet',
-        'max_moves' => 4,
+        // null / 0 = no loadout cap — equip every supported learnable move the creature has.
+        'max_moves' => null,
         'stamina_max' => 100,
         'stab' => 1.5,
         'random_damage_min' => 1.0,
@@ -159,6 +160,7 @@ return [
         ],
         'mvp_move_slugs' => [
             'tackle', 'scratch', 'pound', 'quick-attack', 'bite',
+            'crunch', 'night-slash', 'snarl',
             'ember', 'flamethrower', 'vine-whip', 'razor-leaf', 'water-gun',
             'bubble', 'thunder-shock', 'thunderbolt', 'confusion', 'psybeam',
             'rock-throw', 'mud-slap', 'gust', 'peck', 'absorb',

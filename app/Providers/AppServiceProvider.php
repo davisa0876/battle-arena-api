@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Application\Creatures\Contracts\CreatureCatalogProvider;
 use App\Domain\OwnedCreatures\Models\OwnedCreature;
 use App\Infrastructure\External\PokeApi\PokeApiClient;
+use App\Infrastructure\External\PokeApi\PokeApiCombatMapper;
 use App\Infrastructure\External\PokeApi\PokeApiCreatureMapper;
 use App\Infrastructure\External\PokeApi\PokeApiCreatureProvider;
 use App\Policies\OwnedCreaturePolicy;
@@ -38,6 +39,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(PokeApiCreatureMapper::class);
+        $this->app->singleton(PokeApiCombatMapper::class);
 
         $this->app->bind(CreatureCatalogProvider::class, PokeApiCreatureProvider::class);
     }
