@@ -34,7 +34,7 @@ return [
         'forbidden' => 'Non sei autorizzato a eseguire questa azione.',
         'self_invite' => 'Non puoi invitare te stesso.',
         'invitee_unavailable' => 'Questo allenatore non puo essere invitato ora.',
-        'already_in_lobby' => 'Hai gia una lobby privata attiva.',
+        'already_in_lobby' => 'Hai gia una lobby privata accettata o una battaglia attiva.',
         'invite_not_pending' => 'Questo invito non e piu in sospeso.',
         'invite_expired' => 'Questo invito e scaduto.',
         'room_closed' => 'Questa lobby privata e chiusa.',

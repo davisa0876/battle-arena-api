@@ -1462,6 +1462,38 @@
                 }
             }
         },
+        "/api/pvp/online": {
+            "get": {
+                "tags": [
+                    "PvP"
+                ],
+                "summary": "List online PvP-eligible opponents",
+                "description": "Returns trainers currently connected to the realtime gateway, eligible for private PvP (level >= pvp_min_trainer_level), excluding the caller and players already in an open lobby/battle. Presence is authenticated app session + PvP level (any screen) — not limited to the PvP lobby route. Clients should keep a WS open via the global presence keeper. Clicking a row should call POST /api/pvp/rooms with that handle.",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Online opponents",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpOnlineOpponentsResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
         "/api/pvp/invitations": {
             "get": {
                 "tags": [
@@ -2183,6 +2215,104 @@
                 }
             }
         },
+        "/api/pvp/battles/{battle}/forfeit": {
+            "post": {
+                "tags": [
+                    "PvP"
+                ],
+                "summary": "Explicitly forfeit an active PvP battle",
+                "description": "Participant-only. Requires Idempotency-Key and expected_version. Ends the battle with end_reason=forfeit, proposed noncombat XP 0/0, and does not resolve a pending attack as combat. Room leave during active combat remains blocked. features.pvp remains false; no matchmaking.",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "battle",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 120
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "expected_version"
+                                ],
+                                "properties": {
+                                    "expected_version": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "idempotency_key": {
+                                        "type": "string",
+                                        "maxLength": 120
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Battle forfeited; actor-relative battle + rewards",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpActionResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "404": {
+                        "$ref": "#/components/schemas/PvpError"
+                    },
+                    "409": {
+                        "description": "PVP_VERSION_CONFLICT, PVP_ALREADY_FINISHED, IDEMPOTENCY_CONFLICT",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation, IDEMPOTENCY_REQUIRED, or PVP_FORFEIT_DISABLED",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpError"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
         "/api/pvp/battles/{battle}/defend": {
             "post": {
                 "tags": [
@@ -2588,6 +2718,67 @@
                                 "type": "array",
                                 "items": {
                                     "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "battle": {
+                        "type": "object",
+                        "properties": {
+                            "pve_min_trainer_level": {
+                                "type": "integer",
+                                "example": 1
+                            },
+                            "pvp_min_trainer_level": {
+                                "type": "integer",
+                                "example": 6
+                            },
+                            "pvp_online_presence": {
+                                "type": "object",
+                                "description": "How trainers appear in GET /api/pvp/online. Authenticated + PvP level; not limited to the PvP lobby screen.",
+                                "properties": {
+                                    "while_authenticated": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "requires_pvp_min_level": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "requires_pvp_screen": {
+                                        "type": "boolean",
+                                        "example": false
+                                    }
+                                }
+                            },
+                            "playable": {
+                                "type": "boolean"
+                            },
+                            "rewards": {
+                                "type": "object",
+                                "properties": {
+                                    "pve": {
+                                        "type": "object",
+                                        "properties": {
+                                            "win": {
+                                                "type": "integer"
+                                            },
+                                            "loss": {
+                                                "type": "integer"
+                                            }
+                                        }
+                                    },
+                                    "pvp": {
+                                        "type": "object",
+                                        "properties": {
+                                            "win": {
+                                                "type": "integer"
+                                            },
+                                            "loss": {
+                                                "type": "integer"
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -3088,6 +3279,44 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/PvpInvitation"
+                        }
+                    }
+                }
+            },
+            "PvpOnlineOpponent": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "handle",
+                    "level"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "handle": {
+                        "type": "string"
+                    },
+                    "display_name": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "avatar_url": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "level": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "PvpOnlineOpponentsResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PvpOnlineOpponent"
                         }
                     }
                 }

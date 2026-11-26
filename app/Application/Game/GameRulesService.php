@@ -72,6 +72,11 @@ class GameRulesService
             'battle' => [
                 'pve_min_trainer_level' => $this->battleEligibility->pveMinTrainerLevel(),
                 'pvp_min_trainer_level' => $this->battleEligibility->pvpMinTrainerLevel(),
+                'pvp_online_presence' => [
+                    'while_authenticated' => (bool) $this->config->get('game.battle.pvp_online_presence.while_authenticated', true),
+                    'requires_pvp_min_level' => (bool) $this->config->get('game.battle.pvp_online_presence.requires_pvp_min_level', true),
+                    'requires_pvp_screen' => (bool) $this->config->get('game.battle.pvp_online_presence.requires_pvp_screen', false),
+                ],
                 'rewards' => $this->battleRewards->allRewards(),
                 // Mirrors features.pve so clients have a single playable signal.
                 'playable' => (bool) $this->config->get('game.features.pve', false),

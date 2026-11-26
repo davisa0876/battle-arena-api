@@ -24,6 +24,19 @@ return [
         'channel' => env('PVP_REALTIME_CHANNEL', 'battle-arena:realtime:notifications:v1'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Online opponents (WS presence SET written by battle-arena-realtime)
+    |--------------------------------------------------------------------------
+    */
+
+    'presence' => [
+        'redis_connection' => env('PVP_PRESENCE_REDIS_CONNECTION', env('WS_ROOM_GRANT_REDIS_CONNECTION', 'ws_tickets')),
+        'online_set_key' => env('PVP_PRESENCE_ONLINE_SET_KEY', 'battle-arena:presence:online'),
+        'max_results' => (int) env('PVP_PRESENCE_MAX_RESULTS', 40),
+    ],
+
+
     'rate_limits' => [
         'mutations_per_minute' => (int) env('PVP_MUTATIONS_PER_MINUTE', 30),
         'grants_per_minute' => (int) env('PVP_GRANTS_PER_MINUTE', 30),

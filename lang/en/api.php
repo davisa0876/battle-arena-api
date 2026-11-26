@@ -34,7 +34,7 @@ return [
         'forbidden' => 'You are not allowed to perform this action.',
         'self_invite' => 'You cannot invite yourself.',
         'invitee_unavailable' => 'That trainer cannot be invited right now.',
-        'already_in_lobby' => 'You already have an active private lobby.',
+        'already_in_lobby' => 'You already have an accepted private lobby or active battle.',
         'invite_not_pending' => 'This invitation is no longer pending.',
         'invite_expired' => 'This invitation has expired.',
         'room_closed' => 'This private lobby is closed.',

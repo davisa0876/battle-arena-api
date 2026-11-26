@@ -14,7 +14,7 @@ return [
     |
     */
 
-    'rules_version' => '4.0.0',
+    'rules_version' => '4.1.0',
 
     /*
     |--------------------------------------------------------------------------
@@ -79,6 +79,16 @@ return [
     'battle' => [
         'pve_min_trainer_level' => 1,
         'pvp_min_trainer_level' => 6,
+        /*
+         * PvP "online" discovery (GET /api/pvp/online):
+         * trainers appear online while authenticated in the app with PvP level unlocked.
+         * Being on the PvP lobby screen is NOT required.
+         */
+        'pvp_online_presence' => [
+            'while_authenticated' => true,
+            'requires_pvp_min_level' => true,
+            'requires_pvp_screen' => false,
+        ],
         'rewards' => [
             'pve' => [
                 'win' => 10,

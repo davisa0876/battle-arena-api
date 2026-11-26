@@ -45,6 +45,26 @@
       }
     }
   },
+  "/api/pvp/online": {
+    "get": {
+      "tags": ["PvP"],
+      "summary": "List online PvP-eligible opponents",
+      "description": "Returns trainers currently connected to the realtime gateway, eligible for private PvP (level >= pvp_min_trainer_level), excluding the caller and players already in an open lobby/battle. Presence is authenticated app session + PvP level (any screen) — not limited to the PvP lobby route. Clients should keep a WS open via the global presence keeper. Clicking a row should call POST /api/pvp/rooms with that handle.",
+      "security": [{ "sanctum": [] }],
+      "responses": {
+        "200": {
+          "description": "Online opponents",
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PvpOnlineOpponentsResponse" }
+            }
+          }
+        },
+        "401": { "$ref": "#/components/responses/Unauthenticated" },
+        "429": { "$ref": "#/components/responses/TooManyRequests" }
+      }
+    }
+  },
   "/api/pvp/invitations": {
     "get": {
       "tags": ["PvP"],

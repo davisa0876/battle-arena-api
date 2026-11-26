@@ -34,7 +34,7 @@ return [
         'forbidden' => 'Vous n\'etes pas autorise a effectuer cette action.',
         'self_invite' => 'Vous ne pouvez pas vous inviter vous-meme.',
         'invitee_unavailable' => 'Ce dresseur ne peut pas etre invite pour le moment.',
-        'already_in_lobby' => 'Vous avez deja un salon prive actif.',
+        'already_in_lobby' => 'Vous avez deja un salon prive accepte ou une bataille active.',
         'invite_not_pending' => 'Cette invitation n\'est plus en attente.',
         'invite_expired' => 'Cette invitation a expire.',
         'room_closed' => 'Ce salon prive est ferme.',

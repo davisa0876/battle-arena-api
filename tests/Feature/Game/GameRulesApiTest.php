@@ -11,7 +11,7 @@ class GameRulesApiTest extends TestCase
         $response = $this->getJson('/api/game/rules');
 
         $response->assertOk()
-            ->assertJsonPath('data.rules_version', '4.0.0')
+            ->assertJsonPath('data.rules_version', '4.1.0')
             ->assertJsonPath('data.features.auth', true)
             ->assertJsonPath('data.features.pve', true)
             ->assertJsonPath('data.features.evolution_execution', false)
@@ -23,6 +23,8 @@ class GameRulesApiTest extends TestCase
             ->assertJsonPath('data.selection.stage_2.unlock_level', 10)
             ->assertJsonPath('data.selection.stage_3.unlock_level', null)
             ->assertJsonPath('data.battle.pvp_min_trainer_level', 6)
+            ->assertJsonPath('data.battle.pvp_online_presence.while_authenticated', true)
+            ->assertJsonPath('data.battle.pvp_online_presence.requires_pvp_screen', false)
             ->assertJsonPath('data.battle.rewards.pve.win', 10)
             ->assertJsonPath('data.battle.rewards.pvp.win', 20)
             ->assertJsonPath('data.battle.playable', true)

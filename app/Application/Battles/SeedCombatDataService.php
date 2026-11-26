@@ -14,7 +14,8 @@ use RuntimeException;
  * Fixture-based, idempotent bootstrap of the PvE combat catalog (no network):
  *  - upserts the MVP moves from database/data/pve_mvp_moves.json,
  *  - upserts the type chart from database/data/type_effectiveness_gen9.json for the pinned ruleset,
- *  - attaches up to four type-matching MVP moves (normal fallbacks) to opponent-pool and starter creatures.
+ *  - attaches up to four type-matching MVP moves (normal fallbacks) to **every** catalog creature
+ *    (PvP uses owned collection creatures, not only the PvE opponent pool).
  *
  * Live PokéAPI import is deferred (see ImportCombatMovesCommand).
  */
@@ -101,11 +102,6 @@ class SeedCombatDataService
      */
     private function seedLearnableMoves(): array
     {
-        $slugs = array_values(array_unique(array_merge(
-            $this->rules->opponentCreatureSlugs(),
-            array_map('strval', (array) config('game.starters.creature_slugs', [])),
-        )));
-
         $mvpMoves = Move::query()
             ->where('is_mvp_supported', true)
             ->whereIn('damage_class', ['physical', 'special'])
@@ -118,8 +114,16 @@ class SeedCombatDataService
         $ensured = 0;
         $creatures = 0;
 
-        Creature::query()->whereIn('slug', $slugs)->with('types')->get()->each(
-            function (Creature $creature) use ($mvpMoves, $versionGroup, $limit, &$ensured, &$creatures): void {
+        // Full catalog: owned PvP creatures are not limited to the PvE opponent pool.
+        Creature::query()->with('types')->orderBy('id')->chunkById(200, function ($chunk) use (
+            $mvpMoves,
+            $versionGroup,
+            $limit,
+            &$ensured,
+            &$creatures,
+        ): void {
+            foreach ($chunk as $creature) {
+                /** @var Creature $creature */
                 $types = $creature->types->pluck('slug')->all();
 
                 $matching = $mvpMoves->filter(fn (Move $m): bool => in_array($m->type_slug, $types, true));
@@ -135,8 +139,8 @@ class SeedCombatDataService
                     $ensured++;
                 }
                 $creatures++;
-            },
-        );
+            }
+        });
 
         return [$ensured, $creatures];
     }

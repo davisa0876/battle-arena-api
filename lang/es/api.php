@@ -34,7 +34,7 @@ return [
         'forbidden' => 'No tienes permiso para realizar esta accion.',
         'self_invite' => 'No puedes invitarte a ti mismo.',
         'invitee_unavailable' => 'Ese entrenador no puede ser invitado ahora.',
-        'already_in_lobby' => 'Ya tienes un lobby privado activo.',
+        'already_in_lobby' => 'Ya tienes un lobby privado aceptado o una batalla activa.',
         'invite_not_pending' => 'Esta invitacion ya no esta pendiente.',
         'invite_expired' => 'Esta invitacion ha caducado.',
         'room_closed' => 'Este lobby privado esta cerrado.',

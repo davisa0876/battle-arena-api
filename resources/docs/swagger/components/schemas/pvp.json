@@ -115,6 +115,26 @@
       }
     }
   },
+  "PvpOnlineOpponent": {
+    "type": "object",
+    "required": ["id", "handle", "level"],
+    "properties": {
+      "id": { "type": "integer" },
+      "handle": { "type": "string" },
+      "display_name": { "type": "string", "nullable": true },
+      "avatar_url": { "type": "string", "nullable": true },
+      "level": { "type": "integer" }
+    }
+  },
+  "PvpOnlineOpponentsResponse": {
+    "type": "object",
+    "properties": {
+      "data": {
+        "type": "array",
+        "items": { "$ref": "#/components/schemas/PvpOnlineOpponent" }
+      }
+    }
+  },
   "PvpRoomGrantResponse": {
     "type": "object",
     "required": ["data"],

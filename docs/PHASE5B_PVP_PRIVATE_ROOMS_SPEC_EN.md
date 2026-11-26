@@ -78,7 +78,8 @@ A room is a **private two-player lobby**, not a running battle. A creator invite
 
 - Both creator and invitee must be authenticated. The same user cannot invite themselves.
 - Both must be **trainer level 6 or above**, using the existing backend PvP eligibility policy, verified on room creation and invitation acceptance. A server may reject ineligible users without revealing private details about them.
-- Invitation recipient is resolved by normalized, exact `PlayerProfile.handle` on Laravel; never from the websocket's `player_id` input. Do not implement global online-player discovery or unrestricted user search.
+- Invitation recipient is resolved by normalized, exact `PlayerProfile.handle` on Laravel; never from the websocket's `player_id` input. Do not implement unrestricted user search.
+- **Online opponents (additive):** `GET /api/pvp/online` may list PvP-eligible trainers currently connected to the realtime gateway. Presence is **authenticated app session + PvP min level**, not “must be on the PvP lobby screen”. See `docs/ADR_2026_11_26_PVP_ONLINE_PRESENCE_POLICY.md`. Inviting still uses `POST /api/pvp/rooms` with an exact handle (from the list or typed).
 - Each room supports exactly one host and one guest for the MVP. No spectators, public joins or multiple concurrent invitations within one room.
 - Creation, invitation acceptance, rejection, cancellation, expiration and closure must have explicit authorized transitions and produce auditable records.
 - An invitation may be accepted only by the intended recipient, once, before expiry, while the room remains available. Hosts cannot accept on behalf of guests.

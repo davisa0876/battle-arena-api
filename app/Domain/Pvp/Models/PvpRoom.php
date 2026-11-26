@@ -66,7 +66,9 @@ class PvpRoom extends Model
 
     public function invitation(): HasOne
     {
-        return $this->hasOne(PvpInvitation::class, 'room_id')->latestOfMany();
+        // Do NOT use latestOfMany(): Laravel still emits MAX(id), and PostgreSQL
+        // rejects MAX(uuid). latest('created_at') uses ORDER BY … LIMIT 1 instead.
+        return $this->hasOne(PvpInvitation::class, 'room_id')->latest('created_at');
     }
 
     public function invitations(): HasMany

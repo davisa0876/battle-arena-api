@@ -133,6 +133,60 @@ class PvpPrivateLobbyTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_pending_invite_can_be_replaced_without_already_in_lobby(): void
+    {
+        $this->fakeRedisPublish();
+        $host = $this->level6(['handle' => 'hostswap']);
+        $guestA = $this->level6(['handle' => 'guestaa']);
+        $guestB = $this->level6(['handle' => 'guestbb']);
+
+        $first = $this->withHeaders($this->asUser($host))
+            ->postJson('/api/pvp/rooms', ['invitee_handle' => 'guestaa'])
+            ->assertCreated();
+        $firstInvitationId = $first->json('data.invitation.id');
+        $firstRoomId = $first->json('data.room.id');
+
+        $second = $this->withHeaders($this->asUser($host))
+            ->postJson('/api/pvp/rooms', ['invitee_handle' => 'guestbb'])
+            ->assertCreated()
+            ->assertJsonPath('data.room.status', 'waiting_for_guest')
+            ->assertJsonPath('data.invitation.invitee.handle', 'guestbb');
+
+        $this->assertDatabaseHas('pvp_rooms', [
+            'id' => $firstRoomId,
+            'status' => 'closed',
+            'closed_reason' => 'cancelled',
+        ]);
+        $this->assertDatabaseHas('pvp_invitations', [
+            'id' => $firstInvitationId,
+            'status' => 'cancelled',
+        ]);
+        $this->assertNotSame($firstRoomId, $second->json('data.room.id'));
+    }
+
+    public function test_accepted_lobby_still_blocks_second_invite(): void
+    {
+        $this->fakeRedisPublish();
+        $host = $this->level6(['handle' => 'hostlock']);
+        $guest = $this->level6(['handle' => 'guestlock']);
+        $other = $this->level6(['handle' => 'otherlock']);
+
+        $created = $this->withHeaders($this->asUser($host))
+            ->postJson('/api/pvp/rooms', ['invitee_handle' => 'guestlock'])
+            ->assertCreated();
+        $invitationId = $created->json('data.invitation.id');
+
+        $this->withHeaders($this->asUser($guest))
+            ->postJson("/api/pvp/invitations/{$invitationId}/accept")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'ready');
+
+        $this->withHeaders($this->asUser($host))
+            ->postJson('/api/pvp/rooms', ['invitee_handle' => 'otherlock'])
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'PVP_ALREADY_IN_LOBBY');
+    }
+
     public function test_self_invite_and_unknown_handle_are_rejected_safely(): void
     {
         $this->fakeRedisPublish();

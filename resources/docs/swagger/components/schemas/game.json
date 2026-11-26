@@ -76,6 +76,42 @@
             }
           }
         }
+      },
+      "battle": {
+        "type": "object",
+        "properties": {
+          "pve_min_trainer_level": { "type": "integer", "example": 1 },
+          "pvp_min_trainer_level": { "type": "integer", "example": 6 },
+          "pvp_online_presence": {
+            "type": "object",
+            "description": "How trainers appear in GET /api/pvp/online. Authenticated + PvP level; not limited to the PvP lobby screen.",
+            "properties": {
+              "while_authenticated": { "type": "boolean", "example": true },
+              "requires_pvp_min_level": { "type": "boolean", "example": true },
+              "requires_pvp_screen": { "type": "boolean", "example": false }
+            }
+          },
+          "playable": { "type": "boolean" },
+          "rewards": {
+            "type": "object",
+            "properties": {
+              "pve": {
+                "type": "object",
+                "properties": {
+                  "win": { "type": "integer" },
+                  "loss": { "type": "integer" }
+                }
+              },
+              "pvp": {
+                "type": "object",
+                "properties": {
+                  "win": { "type": "integer" },
+                  "loss": { "type": "integer" }
+                }
+              }
+            }
+          }
+        }
       }
     }
   }

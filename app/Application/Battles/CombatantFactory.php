@@ -83,42 +83,87 @@ final class CombatantFactory
 
         $moves = [];
         foreach ($learnable as $row) {
-            /** @var Move|null $move */
-            $move = $row->move;
-            if ($move === null || ! $move->is_mvp_supported || ($move->power ?? 0) <= 0) {
+            $snapshot = $this->snapshotFromMove($row->move, $formula);
+            if ($snapshot === null) {
                 continue;
             }
-            if (! in_array($move->damage_class, ['physical', 'special'], true)) {
-                continue;
-            }
-
-            $power = (int) $move->power;
-            $moves[] = new MoveSnapshot(
-                id: (int) $move->id,
-                slug: (string) $move->slug,
-                name: (string) $move->name,
-                power: $power,
-                accuracy: (int) ($move->accuracy ?? 100),
-                ppCurrent: (int) $move->pp,
-                ppMax: (int) $move->pp,
-                staminaCost: StaminaCost::forPower(
-                    $power,
-                    $formula['base'],
-                    $formula['per_step'],
-                    $formula['power_step'],
-                    $formula['min'],
-                    $formula['max'],
-                ),
-                damageClass: (string) $move->damage_class,
-                typeSlug: (string) $move->type_slug,
-                priority: (int) $move->priority,
-            );
-
+            $moves[] = $snapshot;
             if (count($moves) >= $limit) {
                 break;
             }
         }
 
+        // Collection / PvP creatures may not be in the historical PvE opponent pool seed.
+        // Fall back to type-matching MVP moves so battles never open with an empty loadout.
+        if ($moves === []) {
+            $moves = $this->fallbackLoadout($creature, $formula, $limit);
+        }
+
         return $moves;
+    }
+
+    /**
+     * @param  array{base: int, per_step: int, power_step: int, min: int, max: int}  $formula
+     * @return list<MoveSnapshot>
+     */
+    private function fallbackLoadout(Creature $creature, array $formula, int $limit): array
+    {
+        $types = $creature->types->pluck('slug')->all();
+        $mvpMoves = Move::query()
+            ->where('is_mvp_supported', true)
+            ->whereIn('damage_class', ['physical', 'special'])
+            ->where('power', '>', 0)
+            ->orderBy('id')
+            ->get();
+
+        $matching = $mvpMoves->filter(fn (Move $m): bool => in_array($m->type_slug, $types, true));
+        $fallback = $mvpMoves->filter(fn (Move $m): bool => $m->type_slug === 'normal');
+        $picked = $matching->merge($fallback)->unique('id')->take($limit);
+
+        $moves = [];
+        foreach ($picked as $move) {
+            $snapshot = $this->snapshotFromMove($move, $formula);
+            if ($snapshot !== null) {
+                $moves[] = $snapshot;
+            }
+        }
+
+        return $moves;
+    }
+
+    /**
+     * @param  array{base: int, per_step: int, power_step: int, min: int, max: int}  $formula
+     */
+    private function snapshotFromMove(?Move $move, array $formula): ?MoveSnapshot
+    {
+        if ($move === null || ! $move->is_mvp_supported || ($move->power ?? 0) <= 0) {
+            return null;
+        }
+        if (! in_array($move->damage_class, ['physical', 'special'], true)) {
+            return null;
+        }
+
+        $power = (int) $move->power;
+
+        return new MoveSnapshot(
+            id: (int) $move->id,
+            slug: (string) $move->slug,
+            name: (string) $move->name,
+            power: $power,
+            accuracy: (int) ($move->accuracy ?? 100),
+            ppCurrent: (int) $move->pp,
+            ppMax: (int) $move->pp,
+            staminaCost: StaminaCost::forPower(
+                $power,
+                $formula['base'],
+                $formula['per_step'],
+                $formula['power_step'],
+                $formula['min'],
+                $formula['max'],
+            ),
+            damageClass: (string) $move->damage_class,
+            typeSlug: (string) $move->type_slug,
+            priority: (int) $move->priority,
+        );
     }
 }

@@ -50,8 +50,14 @@ final class PvpLobbyService
             }
 
             $result = DB::transaction(function () use ($host, $invitee, $idempotencyKey): array {
-                $this->assertNoOpenLobby($host->id);
-                $this->assertNoOpenLobby($invitee->id);
+                // Pending outbound invites are replaceable (PvE-style restart). Only an
+                // accepted lobby (ready) or active battle blocks a new invite.
+                $superseded = [
+                    ...$this->supersedePendingHostLobbies((int) $host->id),
+                    ...$this->supersedePendingHostLobbies((int) $invitee->id),
+                ];
+                $this->assertNoCommittedLobby($host->id);
+                $this->assertNoCommittedLobby($invitee->id);
 
                 $room = PvpRoom::query()->create([
                     'host_user_id' => $host->id,
@@ -75,13 +81,24 @@ final class PvpLobbyService
                     'idempotency_key' => $idempotencyKey,
                 ]);
 
-                $room->load(['host.profile', 'activeMembers.user.profile', 'invitation.inviter.profile', 'invitation.invitee.profile']);
+                $invitation->load(['inviter.profile', 'invitee.profile']);
+                $room->setRelation('invitation', $invitation);
+                $room->load(['host.profile', 'activeMembers.user.profile']);
 
                 return [
                     'room' => $room,
                     'invitation' => $invitation,
+                    'superseded' => $superseded,
                 ];
             });
+
+            foreach ($result['superseded'] as $closed) {
+                $this->notifyInvitationChanged(
+                    $closed['invitation_id'],
+                    $closed['inviter_user_id'],
+                    $closed['invitee_user_id'],
+                );
+            }
 
             $this->publisher->publish(
                 'pvp.invitation.changed',
@@ -93,7 +110,6 @@ final class PvpLobbyService
                 ['invitation_id' => $result['invitation']->id],
                 targetUserId: (int) $host->id,
             );
-
             return [
                 'status' => 201,
                 'body' => [
@@ -166,7 +182,8 @@ final class PvpLobbyService
                         throw PvpLobbyException::roomClosed();
                     }
 
-                    $this->assertNoOpenLobby($user->id, exceptRoomId: $room->id);
+                    $this->supersedePendingHostLobbies((int) $user->id);
+                    $this->assertNoCommittedLobby($user->id, exceptRoomId: $room->id);
 
                     PvpRoomMember::query()->create([
                         'room_id' => $room->id,
@@ -465,13 +482,69 @@ final class PvpLobbyService
         }
     }
 
-    private function assertNoOpenLobby(int $userId, ?string $exceptRoomId = null): void
+    /**
+     * Cancel outbound pending invites / waiting_for_guest rooms for this host.
+     * Mirrors PvE abandon: a new start replaces an unfinished pending match.
+     *
+     * @return list<array{invitation_id:string, inviter_user_id:int, invitee_user_id:int}>
+     */
+    private function supersedePendingHostLobbies(int $userId): array
+    {
+        $rooms = PvpRoom::query()
+            ->where('host_user_id', $userId)
+            ->where('status', PvpRoom::STATUS_WAITING_FOR_GUEST)
+            ->lockForUpdate()
+            ->get();
+
+        $closed = [];
+        foreach ($rooms as $room) {
+            $pending = PvpInvitation::query()
+                ->where('room_id', $room->id)
+                ->where('status', PvpInvitation::STATUS_PENDING)
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($pending as $invitation) {
+                $invitation->status = PvpInvitation::STATUS_CANCELLED;
+                $invitation->responded_at = now();
+                $invitation->save();
+                $closed[] = [
+                    'invitation_id' => (string) $invitation->id,
+                    'inviter_user_id' => (int) $invitation->inviter_user_id,
+                    'invitee_user_id' => (int) $invitation->invitee_user_id,
+                ];
+            }
+
+            $members = PvpRoomMember::query()
+                ->where('room_id', $room->id)
+                ->whereNull('left_at')
+                ->lockForUpdate()
+                ->get();
+            foreach ($members as $member) {
+                $member->left_at = now();
+                $member->save();
+            }
+
+            $room->status = PvpRoom::STATUS_CLOSED;
+            $room->closed_reason = PvpRoom::CLOSED_CANCELLED;
+            $room->closed_at = now();
+            $room->version = $room->version + 1;
+            $room->save();
+        }
+
+        return $closed;
+    }
+
+    /**
+     * Block only when the trainer is already in an accepted lobby or live battle.
+     * Pending outbound invites must not trap the player.
+     */
+    private function assertNoCommittedLobby(int $userId, ?string $exceptRoomId = null): void
     {
         $query = PvpRoomMember::query()
             ->where('user_id', $userId)
             ->whereNull('left_at')
             ->whereHas('room', fn ($q) => $q->whereIn('status', [
-                PvpRoom::STATUS_WAITING_FOR_GUEST,
                 PvpRoom::STATUS_READY,
                 PvpRoom::STATUS_IN_BATTLE,
             ]));
