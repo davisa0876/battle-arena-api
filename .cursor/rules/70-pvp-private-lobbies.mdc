@@ -1,0 +1,15 @@
+---
+description: Private PvP lobbies remain Laravel-authoritative
+globs: "{app/Application/Pvp/**/*.php,app/Domain/Pvp/**/*.php,app/Http/Controllers/Api/Pvp/**/*.php,app/Http/Requests/Pvp/**/*.php,tests/Feature/Pvp/**/*.php,config/pvp.php}"
+alwaysApply: false
+---
+
+# Private PvP Lobbies (Phase 5B.1)
+
+- Laravel alone owns invitation eligibility (level ≥ 6), membership, room state, and XP authority.
+- Node is transport only. Publish notification hints after DB commit; never compute combat or XP here.
+- Room WebSocket access requires one-use Redis subscription grants. `connection.ready` is not room auth.
+- Invitees are resolved by exact normalized `PlayerProfile.handle` only — no open user search.
+- `features.pvp` stays false until combat ships. Lobby leave/cancel must not award XP/win/loss.
+- Prefer Idempotency-Key header; also accept body `idempotency_key` for SPA/mobile clients.
+- Fail closed when Redis grant/publish stores are unavailable.

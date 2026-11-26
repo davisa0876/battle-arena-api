@@ -26,6 +26,21 @@ return [
     'selection_unavailable' => 'Esta criatura no esta disponible para seleccion.',
     'selection_duplicate' => 'Esta solicitud de seleccion ya fue procesada.',
     'pvp_locked' => 'El JcJ se desbloquea en el nivel de entrenador :level.',
+    'realtime' => [
+        'ticket_unavailable' => 'Los tickets en tiempo real no estan disponibles temporalmente. Intentalo de nuevo.',
+    ],
+    'pvp' => [
+        'not_found' => 'Lobby privado no encontrado.',
+        'forbidden' => 'No tienes permiso para realizar esta accion.',
+        'self_invite' => 'No puedes invitarte a ti mismo.',
+        'invitee_unavailable' => 'Ese entrenador no puede ser invitado ahora.',
+        'already_in_lobby' => 'Ya tienes un lobby privado activo.',
+        'invite_not_pending' => 'Esta invitacion ya no esta pendiente.',
+        'invite_expired' => 'Esta invitacion ha caducado.',
+        'room_closed' => 'Este lobby privado esta cerrado.',
+        'idempotency_conflict' => 'La clave de idempotencia se reutilizo con otro payload.',
+        'grant_unavailable' => 'Los permisos de suscripcion al lobby no estan disponibles temporalmente.',
+    ],
     'evolution_reasons' => [
         'requirements_not_defined' => 'La evolución aún no está disponible.',
     ],

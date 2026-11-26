@@ -1,0 +1,279 @@
+PROJECT: BATTLE ARENA
+PHASE: 5B.1 — PRIVATE PVP ROOMS, INVITATIONS, AND AUTHORIZED REALTIME SUBSCRIPTIONS
+
+ROLE:
+Act as a Principal Software Architect, Senior Laravel Engineer, Senior Node.js/TypeScript WebSocket Engineer, Senior React/Expo Engineer, Security Engineer, and Test Engineer.
+
+OBJECTIVE:
+Deliver a fully functional PRIVATE PVP LOBBY workflow for TWO authenticated trainers. The system must support invitations, acceptance/decline/cancellation, room membership, secure realtime notifications, and web/mobile UI.
+
+STOP AFTER PHASE 5B.1. DO NOT IMPLEMENT ACTUAL PVP COMBAT YET.
+
+===============================================================
+1. READ THE MANDATORY DOCUMENTATION IN FULL
+===============================================================
+
+NEW DOCUMENT (primary implementation contract):
+C:\FREELANCE\games\battle-arena-api\docs\PHASE5B_PVP_PRIVATE_ROOMS_SPEC_EN.md
+
+PHASE 5A WEBSOCKET SPECIFICATION:
+C:\FREELANCE\games\battle-arena-api\docs\PHASE5A_REALTIME_NODE_WEBSOCKET_SPEC_EN.md
+
+EXISTING PVE ENGINE SPECIFICATION:
+C:\FREELANCE\games\battle-arena-api\docs\BATTLE_ENGINE_PVE_SPEC_EN.md
+
+Read all three documents completely, including Mermaid diagrams, protocol descriptions, lifecycle tables, security controls, data models, and testing requirements.
+
+If the Phase 5A spec has a newer revision in the same folder, inspect and use the latest version. Do not assume missing files without checking the actual local workspace.
+
+PRIORITY:
+- Existing security boundaries, working Phase 5A transport, and authoritative game rules must be preserved.
+- The new Phase 5B specification defines the intended lobby/invitation behavior.
+- Existing code conventions determine specific folder names and implementation details when equivalent.
+- Report conflicts. Do not silently overwrite working implementation.
+
+===============================================================
+2. INSPECT FIVE EXISTING SIBLING PROJECTS
+===============================================================
+
+C:\FREELANCE\games\battle-arena-api
+C:\FREELANCE\games\battle-arena-web
+C:\FREELANCE\games\battle-arena-mobile
+C:\FREELANCE\games\battle-arena-infra
+C:\FREELANCE\games\battle-arena-realtime
+
+The realtime project's remote GitHub repository is named:
+davisa0876/battle-arena-realtime-websocket
+
+DO NOT create a duplicate realtime service/repository.
+DO NOT merge the existing independent repositories.
+
+IMPORTANT HANDOFF DETAIL:
+Phase 5A Laravel realtime ticket endpoint and Docker Compose modifications may exist LOCALLY but may not have been committed/pushed yet. Inspect git status, local files, and working-tree diffs BEFORE relying on remote GitHub state. Preserve all local uncommitted work.
+
+Read and honor .cursor/rules/*.mdc in all five projects.
+
+The Node project already contains Cursor rules 00-70. Do not overwrite them with templates. Extend them for secure room subscription authorization, targeted fanout, versioned events, and REST rehydration. Introduce 80-private-rooms-and-fanout.mdc if that separation is useful, with valid Cursor frontmatter.
+
+===============================================================
+3. RESPECT RESPONSIBILITY BOUNDARIES
+===============================================================
+
+LARAVEL:
+- Authenticates users via existing Sanctum web-cookie/mobile-bearer schemes.
+- Determines trainer level eligibility (PvP unlocks at level 6).
+- Resolves exact public player handles.
+- Owns invitations, rooms, participant membership and authorization.
+- Stores state in PostgreSQL.
+- Issues one-time connection and room subscription grants.
+- Produces authoritative post-commit change signals.
+- Later will own PvP combat state, damage, rewards and XP.
+
+NODE.JS:
+- Reuses the existing native ws gateway, Redis, heartbeat and connection.ready.
+- Maintains authenticated socket identity derived from redeemed 5A ticket.
+- Atomically verifies one-time ROOM subscription grants from Laravel.
+- Maintains per-socket authorized subscriptions.
+- Delivers bounded, validated room and personal change notifications.
+- Never derives authorization from a client-supplied player ID or room ID.
+- Never calculates damage or awards XP.
+
+CLIENTS:
+- REST for create/invite/accept/decline/cancel/leave/grant/read operations.
+- WebSocket only for notifications; re-fetch authoritative room/invite state via REST.
+- Never trust websocket payloads for game results or membership state.
+
+===============================================================
+4. DELIVER PHASE 5B.1 IN ORDER
+===============================================================
+
+P0 — RECONCILIATION AND BASELINE
+- Inspect all existing 5A code and current git status.
+- Verify the existing Laravel POST /api/realtime/tickets and Node one-use ticket handshake.
+- Verify the Compose realtime service and Redis key namespace.
+- Check current tests and CI; identify pre-existing failures separately.
+- Do not discard local changes or re-create the 5A infrastructure.
+
+P1 — LARAVEL INVITATION / ROOM DOMAIN
+- Add additive PostgreSQL migrations only.
+- Build private 2-player room records and pending invite records.
+- Use existing profile handles and player progress policies.
+- Trainer level < 6 must be denied for create and accept.
+- Creator invites another real trainer by exact handle (not self).
+- Implement pending -> accepted / declined / cancelled / expired.
+- Implement room waiting_for_guest -> ready -> closed.
+- Lock and validate transitions transactionally and prevent duplicate acceptance.
+- Provide host/guest membership and appropriate private REST reads.
+- Add role-based authorization, form requests, resources, error envelopes and throttles.
+- Make mutations safely idempotent.
+- Add an explicit TTL for invitations in config (initially 10 minutes, PROVISIONAL).
+- No win/loss/XP changes for closing a lobby.
+
+P2 — LARAVEL ROOM GRANT + NODE ROOM SUBSCRIPTIONS
+- Reuse existing authenticated 5A websocket connection ticket and protocol v1.
+- Add POST /api/pvp/rooms/{room}/subscription-grants, authorized by Laravel membership.
+- Room grants must be cryptographically random, short-lived (provisional 30s), one-use, hashed by SHA-256, and stored in existing Redis with a DISTINCT prefix.
+- Client sends grant in an authenticated websocket frame, NOT in a URL.
+- Node atomically GETDEL consumes the grant, compares grant user_id with the authenticated socket's playerId, and subscribes only to the grant's room.
+- Reject missing, expired, reused, incorrect-owner, malformed and unauthorized grants.
+- Do not trust room_id or player_id received from the client as proof of access.
+- Preserve 5A websocket health, heartbeat, Origin checks, limits, redacted logs and graceful shutdown.
+- Add bounded room subscription limits and private subscription revocation on room closure.
+- Fail closed on Redis authorization failure.
+
+P3 — POST-COMMIT REALTIME NOTIFICATIONS
+- Publish lightweight typed change signals only AFTER successful PostgreSQL commit.
+- Use the existing Redis 7 deployment; no second Redis.
+- Node relays personal invite updates only to the relevant authenticated player(s).
+- Node relays room changes only to actively authorized room subscribers.
+- Preserve protocol v1 envelopes and schema validation.
+- Include stable event_id and room version; send notification hints, not full sensitive state.
+- Treat Redis pub/sub as best effort. Clients always rehydrate via REST.
+- Handle duplicates, stale versions, redis reconnect, revoked membership and socket closure.
+- Never broadcast arbitrary rooms globally or allow clients to publish server events.
+
+P4 — REACT + EXPO PRIVATE LOBBY UI
+- Add a minimal PvP invitation and lobby experience to battle-arena-web and battle-arena-mobile.
+- Create invite by exact player handle.
+- Show received and sent invitations; accept / decline / cancel.
+- Show 2 participants and lobby waiting/ready/closed status.
+- Fetch ticket, establish WebSocket, obtain authorized room grant, subscribe, and re-fetch REST state after notifications.
+- Handle browser refresh, app foreground/background, retries, connection loss and duplicate notifications.
+- Preserve current Battle Arena branding, layouts, accessibility, user-facing error patterns, and loading components.
+- Support en, fr, pt-BR, it, es with translation-key parity.
+- Do NOT build PvP attack/defense buttons or pretend matches are playable yet.
+- Keep existing features.pvp=false until complete PvP gameplay is shipped.
+
+P5 — TESTS, DOCS, AND SMOKE
+- Laravel: level gate, no self-invite, exact handle, authorization, concurrent accept, idempotency, expiry, no foreign room access, no XP mutation.
+- Node: session identity binding, one-use grant, grant replay, origin, foreign room denial, targeted fanout, revocation, duplicate/out-of-order notifications, Redis fail closed, frame bounds, heartbeat unaffected.
+- Clients: invite/lobby lifecycle, error/loading states, reconnection REST rehydrate, ticket and grant refresh, five locales.
+- Docker: bring up the existing Compose realtime service and test two separate authenticated accounts, invite and accept, each socket obtaining its own room grant. A third account must be denied. Test refresh and reconnect.
+- Run repo scripts for lint, typecheck, build and tests. Report exact commands and results, and do not claim Expo physical-device smoke if not executed.
+- Update OpenAPI and README accurately; leave existing PvE features untouched.
+
+===============================================================
+5. API CONVENTIONS TO FOLLOW
+===============================================================
+
+Use the exact API proposals in the new Phase 5B spec, adapting to project conventions:
+
+POST /api/pvp/rooms
+GET  /api/pvp/invitations?box=received|sent
+POST /api/pvp/invitations/{id}/accept
+POST /api/pvp/invitations/{id}/decline
+POST /api/pvp/invitations/{id}/cancel
+GET  /api/pvp/rooms/{room}
+POST /api/pvp/rooms/{room}/leave
+POST /api/pvp/rooms/{room}/subscription-grants
+
+All routes require existing auth:sanctum.
+Apply policy checks on every resource access and every mutation.
+No public listing of room membership or invitations.
+
+===============================================================
+6. WEBSOCKET CONTRACT AND SECURITY
+===============================================================
+
+Keep existing connection.ready and connection.error unchanged.
+Extend protocol v1 with versioned, validated messages such as:
+
+Client -> Node:
+- room.subscribe { grant }
+- room.unsubscribe { room_id }
+
+Node -> Client:
+- room.subscribed { room_id, version }
+- pvp.room.changed { room_id, version }
+- pvp.invitation.changed { invitation_id }
+- room.subscription.revoked { room_id, reason }
+
+Do not send client combat commands or full private opponent data through the socket.
+No public room join by room ID alone.
+Do not store credentials in localStorage or WS URLs.
+Do not log grants, one-use tickets, private URLs or bearer tokens.
+Use TLS/WSS outside local development.
+
+Address logout/revocation behavior explicitly. A long-lived authenticated socket must not remain authorized indefinitely after its user is revoked or removed from a room. Implement and test a safe enforcement approach rather than merely documenting it as secure.
+
+===============================================================
+7. UPDATE CURSOR RULES APPROPRIATELY
+===============================================================
+
+Inspect existing Node rules:
+00-project-architecture.mdc
+10-typescript-node.mdc
+20-websocket-protocol.mdc
+30-authentication-security.mdc
+40-redis-reliability.mdc
+50-testing-quality.mdc
+60-docker-deployment.mdc
+70-observability-errors.mdc
+
+Extend them without duplicating conflicting standards.
+Create 80-private-rooms-and-fanout.mdc if it materially improves enforcement.
+
+Ensure the rules cover:
+- Strict TypeScript and validated envelopes.
+- Explicit Laravel/Node authority boundary.
+- Room ACL via one-use grant, server-derived socket identity.
+- No implicit trust in client-provided room IDs.
+- User-targeted fanout only.
+- Redis best-effort delivery, failure closed for grants, REST rehydration.
+- Idempotency, version ordering, bounded queues and backpressure.
+- Structured redacted logging and observability.
+- Test-first security and adversarial integration tests.
+- Non-root Docker, Compose-safe networking and clean shutdown.
+
+===============================================================
+8. NON-GOALS / IMPORTANT CAUTIONS
+===============================================================
+
+DO NOT:
+- Implement actual PvP combat or modify the existing pure battle engine.
+- Re-implement the battle algorithm in Node.js.
+- Implement matchmaking, ranked leagues, tournaments or chat.
+- Introduce Socket.IO, Laravel Reverb, another Redis or another Postgres.
+- Change PvE damage, stamina, moves or trainer progression rules.
+- Grant PvP XP from invitations, room joins or abandoned lobbies.
+- Invent first-attacker policy, PvP forfeit/disconnect rewards or match timeouts.
+- Mark PvP as playable in the Game Rules page prematurely.
+- Delete Docker volumes or use migrate:fresh / db:wipe.
+- Automatically commit/push or create a remote GitHub repository.
+
+Remember: Currently approved PvP eligibility is trainer level >= 6, and future completed PvP combat rewards are +20 XP winner / +10 XP loser. Those rewards must NOT be paid in Phase 5B.1.
+
+===============================================================
+9. DEFINITION OF DONE
+===============================================================
+
+All Phase 5B.1 acceptance criteria from section 14 of:
+PHASE5B_PVP_PRIVATE_ROOMS_SPEC_EN.md
+
+must be satisfied before claiming completion.
+
+In particular:
+- Two real authenticated level-6+ trainers can use a private invitation and enter a ready room.
+- A third authenticated user cannot view/join/subscribe to their private room.
+- Node validates one-time room grants and never trusts arbitrary client room IDs.
+- Participants receive accurate realtime notification hints and rehydrate via REST.
+- All flows survive refresh/reconnect and handle failure safely.
+- Web and Expo have usable invitation/lobby screens in five locales.
+- All applicable tests/builds/CI checks pass or failures are clearly reported.
+- No PvP battle is executed; XP and existing PvE behavior remain unchanged.
+
+FINAL REPORT:
+1. Five-repository working-tree baseline and 5A prerequisites verified.
+2. Files changed per repository, including .cursor/rules changes.
+3. Exact REST endpoints and protocol schemas implemented.
+4. Database tables/migrations/constraints.
+5. Server-side authorization and one-time grant mechanism.
+6. Redis fanout, revocation, reconnect and delivery semantics.
+7. Web and Expo screens and localization.
+8. Exact tests run, commands, results and CI status.
+9. Docker two-user + unauthorized-third-user smoke outcome.
+10. Known limitations, security concerns and not-tested environments.
+11. Precise recommendations for Phase 5B.2 (but DO NOT implement it).
+
+START NOW:
+Read the full Phase 5B spec and its Phase 5A/PvE references, inspect all local repository working trees, then implement P0–P5 with actual tests. Do not stop after planning.

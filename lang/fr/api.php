@@ -26,6 +26,21 @@ return [
     'selection_unavailable' => 'Cette creature n\'est pas disponible a la selection.',
     'selection_duplicate' => 'Cette demande de selection a deja ete traitee.',
     'pvp_locked' => 'Le JcJ se debloque au niveau dresseur :level.',
+    'realtime' => [
+        'ticket_unavailable' => 'Les tickets temps reel sont temporairement indisponibles. Veuillez reessayer.',
+    ],
+    'pvp' => [
+        'not_found' => 'Salon prive introuvable.',
+        'forbidden' => 'Vous n'etes pas autorise a effectuer cette action.',
+        'self_invite' => 'Vous ne pouvez pas vous inviter vous-meme.',
+        'invitee_unavailable' => 'Ce dresseur ne peut pas etre invite pour le moment.',
+        'already_in_lobby' => 'Vous avez deja un salon prive actif.',
+        'invite_not_pending' => 'Cette invitation n'est plus en attente.',
+        'invite_expired' => 'Cette invitation a expire.',
+        'room_closed' => 'Ce salon prive est ferme.',
+        'idempotency_conflict' => 'La cle d'idempotence a ete reutilisee avec une autre charge utile.',
+        'grant_unavailable' => 'Les autorisations d'abonnement au salon sont temporairement indisponibles.',
+    ],
     'evolution_reasons' => [
         'requirements_not_defined' => 'L\'évolution n\'est pas encore disponible.',
     ],

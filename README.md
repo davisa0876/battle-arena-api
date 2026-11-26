@@ -284,9 +284,25 @@ docker compose exec api php artisan trainer:award-xp misty 250 --source=dev --ke
 ```
 
 XP needed to advance from `level` to `level + 1` is `ceil(100 * 1.5 ^ (level - 1))` (100, 150, 225, 338, ...). Starters are limited to the stage-1 slugs in `config/game.php` and must be base forms in the catalog.
+
+## Phase 5B.1 — Private PvP lobbies
+
+Authoritative private 1:1 lobbies live in Laravel (`/api/pvp/*`). Trainers must be level ≥ 6. Invitations resolve by exact `PlayerProfile.handle`. Node only relays post-commit notification hints after clients authenticate with realtime tickets and redeem one-use room subscription grants.
+
+```bash
+docker compose exec api php artisan migrate
+docker compose exec api php artisan openapi:sync
+docker compose exec api php artisan test --filter=Pvp
+```
+
+`features.pvp` remains `false` until combat ships. Lobby leave/cancel never awards XP.
+
+Spec: `docs/PHASE5B_PVP_PRIVATE_ROOMS_SPEC_EN.md`.
+
 ## Known limitations
 
-- No battles, moves, or evolution execution (evolutions are shown locked)
+- PvP combat, matchmaking, and rankings are not implemented (private lobby/invite only)
+- Evolution execution remains locked
 - Creature/type names are not yet domain-localized; UI chrome is fully translated on clients
 - Alternate forms / species grouping not modeled yet
 - Storage profile is optional and unused by catalog endpoints

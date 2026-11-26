@@ -29,7 +29,8 @@ final class SyncOpenApiDocsCommand extends Command
                 ['url' => 'http://localhost:8000', 'description' => 'Local Compose API'],
             ],
             infoDescription: <<<'MD'
-Phase 3+ contract: accounts, profiles, owned creatures, game rules and PvE arena battles.
+Phase 3+ contract: accounts, profiles, owned creatures, game rules, PvE arena battles,
+and Phase 5B.1 private PvP lobbies/invitations (no combat/XP yet).
 
 Authentication: web uses Sanctum cookie sessions (call `GET /sanctum/csrf-cookie` first, send
 `X-XSRF-TOKEN`, omit `device_name`). Mobile sends `device_name` and receives a bearer token.

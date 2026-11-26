@@ -26,6 +26,21 @@ return [
     'selection_unavailable' => 'This creature is not available for selection.',
     'selection_duplicate' => 'This selection request was already processed.',
     'pvp_locked' => 'PvP unlocks at trainer level :level.',
+    'realtime' => [
+        'ticket_unavailable' => 'Realtime tickets are temporarily unavailable. Please try again.',
+    ],
+    'pvp' => [
+        'not_found' => 'Private lobby not found.',
+        'forbidden' => 'You are not allowed to perform this action.',
+        'self_invite' => 'You cannot invite yourself.',
+        'invitee_unavailable' => 'That trainer cannot be invited right now.',
+        'already_in_lobby' => 'You already have an active private lobby.',
+        'invite_not_pending' => 'This invitation is no longer pending.',
+        'invite_expired' => 'This invitation has expired.',
+        'room_closed' => 'This private lobby is closed.',
+        'idempotency_conflict' => 'Idempotency key was reused with a different payload.',
+        'grant_unavailable' => 'Room subscription grants are temporarily unavailable.',
+    ],
     'evolution_reasons' => [
         'requirements_not_defined' => 'Evolution is not available yet.',
     ],

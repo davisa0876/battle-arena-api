@@ -71,6 +71,8 @@ final class SwaggerDocsService
                 ['name' => 'Game', 'description' => 'Published game rules and feature flags'],
                 ['name' => 'Catalog', 'description' => 'Public creature catalog'],
                 ['name' => 'PvE', 'description' => 'Solo arena battles'],
+                ['name' => 'PvP', 'description' => 'Private lobbies and invitations (no combat in 5B.1)'],
+                ['name' => 'Realtime', 'description' => 'WebSocket ticket bootstrap for the Node gateway'],
             ],
             'paths' => [],
             'components' => [

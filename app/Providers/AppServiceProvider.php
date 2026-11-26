@@ -66,6 +66,15 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('pve-actions', fn (Request $request): Limit => Limit::perMinute(60)
             ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
+
+        RateLimiter::for('realtime-tickets', fn (Request $request): Limit => Limit::perMinute((int) config('realtime.rate_limit_per_minute'))
+            ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
+
+        RateLimiter::for('pvp-mutations', fn (Request $request): Limit => Limit::perMinute((int) config('pvp.rate_limits.mutations_per_minute'))
+            ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
+
+        RateLimiter::for('pvp-grants', fn (Request $request): Limit => Limit::perMinute((int) config('pvp.rate_limits.grants_per_minute'))
+            ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
     }
 
     /**

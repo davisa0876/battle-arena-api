@@ -1,0 +1,28 @@
+{
+  "RealtimeTicketResponse": {
+    "type": "object",
+    "required": ["data"],
+    "properties": {
+      "data": {
+        "type": "object",
+        "required": ["ticket", "expires_in", "ws_url"],
+        "properties": {
+          "ticket": {
+            "type": "string",
+            "description": "Opaque single-use secret. Present once; never logged."
+          },
+          "expires_in": {
+            "type": "integer",
+            "example": 30,
+            "description": "Seconds until the ticket expires if unused."
+          },
+          "ws_url": {
+            "type": "string",
+            "example": "ws://localhost:3001/ws",
+            "description": "Public WebSocket URL for clients (not the Compose hostname)."
+          }
+        }
+      }
+    }
+  }
+}

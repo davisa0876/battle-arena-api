@@ -26,6 +26,21 @@ return [
     'selection_unavailable' => 'Esta criatura nao esta disponivel para selecao.',
     'selection_duplicate' => 'Esta solicitacao de selecao ja foi processada.',
     'pvp_locked' => 'O PvP desbloqueia no nivel de treinador :level.',
+    'realtime' => [
+        'ticket_unavailable' => 'Os tickets em tempo real estao temporariamente indisponiveis. Tente novamente.',
+    ],
+    'pvp' => [
+        'not_found' => 'Lobby privada nao encontrada.',
+        'forbidden' => 'Voce nao tem permissao para executar esta acao.',
+        'self_invite' => 'Voce nao pode convidar a si mesmo.',
+        'invitee_unavailable' => 'Esse treinador nao pode ser convidado agora.',
+        'already_in_lobby' => 'Voce ja tem uma lobby privada ativa.',
+        'invite_not_pending' => 'Este convite nao esta mais pendente.',
+        'invite_expired' => 'Este convite expirou.',
+        'room_closed' => 'Esta lobby privada esta fechada.',
+        'idempotency_conflict' => 'A chave de idempotencia foi reutilizada com outro payload.',
+        'grant_unavailable' => 'As autorizacoes de inscricao na lobby estao temporariamente indisponiveis.',
+    ],
     'evolution_reasons' => [
         'requirements_not_defined' => 'A evolução ainda não está disponível.',
     ],

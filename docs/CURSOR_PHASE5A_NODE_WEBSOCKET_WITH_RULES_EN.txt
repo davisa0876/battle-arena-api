@@ -1,0 +1,299 @@
+PROJECT: BATTLE ARENA
+PHASE 5A: STANDALONE NODE.JS WEBSOCKET GATEWAY + CURSOR PROJECT RULES
+MODE: IMPLEMENT AND VERIFY — DO NOT STOP AFTER WRITING A PLAN
+
+ROLE
+Act as a Principal Node.js/TypeScript Engineer, WebSocket Security Engineer,
+Senior Laravel Architect, Platform Engineer, and Quality Engineer.
+
+1. MANDATORY SOURCE DOCUMENTATION — READ BEFORE CODING
+
+Primary technical specification (READ THE ENTIRE FILE):
+C:\FREELANCE\games\battle-arena-api\docs\PHASE5A_REALTIME_NODE_WEBSOCKET_SPEC_EN.md
+
+Related existing PvE specification:
+C:\FREELANCE\games\battle-arena-api\docs\BATTLE_ENGINE_PVE_SPEC_EN.md
+
+Inspect every relevant section, architecture and sequence diagram, security
+requirement, contract, test matrix, acceptance criterion, and milestone M0–M5.
+Use the Phase 5A specification as the primary source of truth. Do not substitute
+another architecture. If the local document differs from these instructions,
+flag the difference and preserve the agreed application/security boundaries.
+
+Before editing inspect the actual current source, Cursor rules, runtime config,
+and CI for the four sibling repositories:
+- C:\FREELANCE\games\battle-arena-api
+- C:\FREELANCE\games\battle-arena-web
+- C:\FREELANCE\games\battle-arena-mobile
+- C:\FREELANCE\games\battle-arena-infra
+
+Pay special attention to battle-arena-infra/compose.yaml and .env.example,
+Laravel Sanctum LoginService and API routes, existing Redis configuration,
+existing Node conventions and tests in web/mobile, and PvE rules/services.
+Do not assume prior CI failures have been fixed; verify and report them separately.
+
+2. IMPLEMENT PHASE 5A AND NOTHING BEYOND IT
+
+Create a NEW standalone sibling application:
+C:\FREELANCE\games\battle-arena-realtime
+
+It is a separate Node.js + TypeScript application, designed for an independent
+future Git repository. Do NOT move its source into battle-arena-infra. Do NOT
+merge repositories, create a remote repo, commit or push without permission.
+
+Use a current supported Node.js LTS with a pinned Docker image, TypeScript
+strict mode, maintained `ws` native WebSocket library (NOT Socket.IO), existing
+Redis 7 via node-redis, schema validation, minimal structured/redacted logging,
+and a small modular architecture. Pin and lock versions, check compatibility.
+
+This phase includes ONLY:
+- New Node app, production/development scripts, deterministic dependencies.
+- Dockerfile (multi-stage, non-root runtime), .dockerignore, .env.example.
+- HTTP GET /health/live and GET /health/ready.
+- Authenticated WebSocket GET /ws via single-use ticket.
+- Laravel POST /api/realtime/tickets using existing auth:sanctum.
+- Cryptographically secure 256-bit ticket generation by Laravel.
+- SHA-256 hash Redis key with ~30 second TTL and atomic GETDEL consumption.
+- No raw Sanctum bearer/session token in WebSocket query strings or logs.
+- Validated upgrade path/origin/protocol, quotas, frame and message limits.
+- Versioned `connection.ready` event, WebSocket ping/pong, bounded buffers.
+- Strict protocol validation, safe error codes, fail-closed Redis behavior.
+- Conservative configurable maximum socket lifetime + disconnect handling.
+- Graceful SIGTERM/SIGINT shutdown with bounded deadline.
+- Docker Compose integration using the existing private network and Redis.
+- Automated unit/integration tests, CI workflow, local smoke-test script.
+- Clear README and integration documentation.
+
+DO NOT IMPLEMENT:
+- PvP gameplay, matchmaking, player invitations, battle rooms or live presence.
+- Frontend WebSocket managers in React or Expo for this infrastructure milestone.
+- Battle-engine, combat logic, XP, HP, PP, stamina, trainer progression changes.
+- Laravel Reverb or Socket.IO.
+- New PostgreSQL or Redis instances.
+
+3. MANDATORY CURSOR RULES — CREATE THESE FIRST
+
+At project root create real, substantive Cursor Project Rules in:
+C:\FREELANCE\games\battle-arena-realtime\.cursor\rules\
+
+Create ALL of the following `.mdc` files; do not replace them with a generic
+README, plain `.md` file, or obsolete single `.cursorrules` file:
+
+00-project-architecture.mdc
+- alwaysApply: true (small, core invariants).
+- Service owns transport/presence only; Laravel owns identity, game rules,
+  all business authorization, battle results, rewards, and persistence.
+- Repo boundaries, Phase 5A scope and independent release lifecycle.
+- Business logic must never leak into socket event handlers.
+- Read the source spec before changing architecture or protocol.
+
+10-typescript-node.mdc
+- Apply to src/**/*.ts and tests/**/*.ts.
+- Strict TS, no implicit any, unknown at trust boundaries, narrow types,
+  explicit public contracts and return types, small composable modules.
+- Use async/await, AbortSignal/timeouts, safe promise rejection handling.
+- No blocking synchronous I/O on request/message paths; no uncontrolled timers.
+- DI for Redis, clocks, random sources, HTTP/socket adapters in tests.
+- Avoid unnecessary abstractions, global mutable state and circular imports.
+- Use a consistent formatter, ESLint and modern Node ESM/CommonJS convention.
+
+20-websocket-protocol.mdc
+- Apply to src/websocket/**, src/protocol/** and related tests.
+- Use `ws` with controlled `noServer`/upgrade auth flow, strict path/method.
+- No anonymous WS, no arbitrary commands, no fake PvP events in Phase 5A.
+- Versioned schemas, bounded payloads (initial target 8 KiB), valid UTF-8 JSON.
+- Ping/pong heartbeat, close codes, backpressure, rate/connection limits.
+- Disable permessage-deflate until deliberately measured and reviewed.
+- Stable `connection.ready` and safe `connection.error` envelopes.
+- No production logic attached to client-submitted identity or outcome fields.
+
+30-authentication-security.mdc
+- alwaysApply: true if concise; otherwise scope to auth/upgrade code.
+- Laravel issues cryptographically random single-use ticket; Node only redeems.
+- Hashed Redis key, TTL, atomic GETDEL; reject expired/reused/malformed tokens.
+- Always validate supplied Origin against explicit allowlist; missing Origin
+  allowed only for documented native clients, still requiring valid ticket.
+- Never expose session cookies, Sanctum tokens or raw tickets in logs/URLs
+  beyond short-lived one-time WS handshake; sanitize logs and proxy access logs.
+- Fail closed when Redis/untrusted requests are unavailable or invalid.
+- Strong no-secret-in-repo policy, least privilege, limits, session lifetime.
+- A transport ticket is NOT authorization for a future battle room.
+
+40-redis-reliability.mdc
+- Apply to src/redis/**, src/auth/** and their tests.
+- Redis 7 shared with Laravel; explicit identical key prefix, serialization,
+  hashing and TTL; verify Laravel/Node prefix behavior end to end.
+- Atomic ticket consumption; never GET then DEL; never silently cache fallback.
+- Bounded reconnect/backoff, readiness reflects dependencies accurately.
+- Separate command and subscription clients if future Pub/Sub is introduced.
+- Redis Pub/Sub is not authoritative or durable for battle state.
+
+50-testing-quality.mdc
+- Apply to tests/** and src/**/*.ts.
+- Unit and integration tests with deterministic clocks, injected dependencies.
+- Include auth, replay, expiry, concurrency, origin, frame/connection limits,
+  Redis down, heartbeat, shutdown and error redaction cases.
+- No real credentials, no live external services in unit tests.
+- CI: lint, typecheck, unit/integration test, build; Docker smoke where feasible.
+- Never report green tests unless commands actually ran and passed.
+
+60-docker-deployment.mdc
+- Apply to Dockerfile, compose integration, scripts, .env.example, CI.
+- Multi-stage pinned Node LTS image, non-root runtime, npm ci,
+  production-only dependencies, .dockerignore, healthcheck that exists.
+- Dedicated REALTIME_BIND_ADDRESS default 127.0.0.1 and REALTIME_PORT 3001.
+- Reuse existing Compose bridge network, Redis and volume declarations.
+- Do not expose Redis/PostgreSQL/RustFS to the LAN; TLS/WSS in deployment.
+- Preserve APP_KEY, services and all data volumes; no destructive commands.
+
+70-observability-errors.mdc
+- Apply to src/observability/**, src/http/**, src/websocket/**.
+- JSON logs with request/connection correlation IDs, safe redaction.
+- Never log raw handshake URL, ticket, auth token, session cookie, account
+  email or sensitive metadata; generic client-facing error codes.
+- Separate /health/live and /health/ready semantics.
+- Bounded retries, clear timeouts, graceful shutdown, measurable counters.
+- Consistent actionable errors, no stack traces leaked to clients.
+
+MDC REQUIREMENTS:
+- Every file MUST have valid Cursor YAML frontmatter (`description`,
+  `globs` as appropriate, `alwaysApply`). Match current official Cursor rules
+  syntax and existing repo patterns. `.mdc` is required.
+- Only short, universally relevant invariants should use alwaysApply:true;
+  scoped rules must use accurate globs and not spam every context.
+- Write enforceable project-specific rules with positive conventions,
+  pitfalls, and a small example where helpful. No filler boilerplate.
+- Rules must align with the actual implemented code and spec. Do not create
+  a rule demanding modules or tools the implementation does not use.
+- Verify the files exist, frontmatter is valid and the patterns match paths.
+- After implementing, revise the rules to reflect actual final architecture.
+
+4. REQUIRED NODE PROJECT SHAPE
+
+Use this as a starting point; adjust only after inspecting the spec:
+
+battle-arena-realtime/
+  .cursor/rules/*.mdc
+  src/
+    app.ts
+    config/env.ts
+    http/server.ts
+    websocket/upgrade.ts
+    websocket/connections.ts
+    websocket/heartbeat.ts
+    websocket/protocol.ts
+    auth/ticketStore.ts
+    redis/client.ts
+    observability/logger.ts
+  tests/
+  scripts/
+  .github/workflows/ci.yml
+  Dockerfile
+  .dockerignore
+  .env.example
+  .gitignore
+  package.json
+  package-lock.json
+  tsconfig.json
+  README.md
+
+Use a well-supported test runner (Node native test runner or Vitest) with
+reasoned, minimal dependencies. Define npm scripts for lint, typecheck,
+test, test:integration (if separated), build, and start.
+Keep HTTP controllers/upgrade listeners thin; separate auth policy, ticket
+storage, protocol validation and lifecycle management. No overengineering.
+
+5. LARAVEL ↔ REDIS ↔ NODE SECURITY CONTRACT
+
+A. Existing web session / mobile bearer -> authenticated HTTP request:
+   POST /api/realtime/tickets (Sanctum, web CSRF, throttle, no-store).
+B. Laravel generates opaque 256-bit ticket, stores SHA-256(ticket) in a
+   dedicated Redis key with TTL ~30 seconds (SET NX EX or equivalent).
+   Store only minimal player id and issue metadata; never raw ticket.
+C. Response sends one-use ticket, `expires_in`, public `ws_url` obtained from
+   configured PUBLIC_WS_URL; browser/mobile must never receive `realtime:3001`.
+D. WS upgrade: /ws?ticket=opaque; validate method/path/header/Origin, token
+   encoding/length and limits BEFORE any Redis lookup; never log full URL.
+E. Node consumes SHA-256 key with atomic GETDEL. Exactly one succeeds,
+   even with concurrent attempts and multiple service instances.
+F. Only after redemption and identity binding accept the upgrade and emit
+   protocol v1 `connection.ready` with server-derived player_id and connection_id.
+G. Reject invalid/expired/reused tickets, foreign Origins and Redis outages;
+   no anonymous fallback; never accept `player_id` from the client.
+H. Bound socket lifetime and document logout/token-revocation limitations.
+
+Implement the SAME namespace/TTL/serialization on both sides. Verify this
+using an actual Laravel -> Redis -> Node end-to-end test, not only mocked tests.
+Use wss:// and strict proxy logging/Origin policy outside isolated local dev.
+
+6. DOCKER & LAN REQUIREMENTS
+
+Modify only relevant parts of battle-arena-infra/compose.yaml / .env.example:
+- Add realtime build from ../battle-arena-realtime (never inline its source).
+- Add container port 3001 and host binding
+  ${REALTIME_BIND_ADDRESS:-127.0.0.1}:${REALTIME_PORT:-3001}:3001.
+- Reuse Redis 7 and battle_arena bridge, wait for Redis health.
+- API receives PUBLIC_WS_URL and matching ticket key config.
+- Add actual working healthcheck; do not reference nonexistent dist files.
+- Preserve existing service behavior, volumes, networks, binds and secrets.
+- Physical phone: expose API/realtime ONLY on trusted LAN temporarily,
+  configure LAN IP and firewall. Keep DB/Redis/RustFS private.
+- Never change API_BIND_ADDRESS or session settings globally for the sake
+  of WebSockets; document cross-origin deployment architecture separately.
+
+7. ACCEPTANCE TESTS — REQUIRED
+
+Run and report real results for:
+- npm ci, lint, typecheck, build, all Node tests.
+- Laravel feature tests: web/mobile authenticated ticket, no auth,
+  expiry/no-store, throttling, Redis outage, hashed-only Redis storage.
+- Invalid Origin, missing/duplicate/malformed ticket, expired/replayed ticket.
+- Concurrent ticket redemption (only one socket authenticates).
+- 8 KiB max payload, malformed frames, unsupported path/protocol handling.
+- Connection limits, heartbeat timeout, max lifetime, safe close and shutdown.
+- Failure of Redis: HTTP ready=503, new upgrades fail closed.
+- No private data before authenticated upgrade; log redaction.
+- Docker compose config, up --build -d realtime, ps, health/live, health/ready.
+- Positive end-to-end: authenticated Laravel ticket -> Node `connection.ready`.
+- Negative end-to-end: same ticket reused -> rejected.
+- Existing Laravel PvE behavior and gameplay rules remain unchanged.
+
+If Docker/runtime isn't available, implement and run what is possible; list
+untested checks explicitly. Distinguish existing web/mobile CI failures.
+
+8. IMPLEMENTATION ORDER — FOLLOW SOURCE SPEC M0 TO M5
+
+M0: Inspect local docs/source/CI, summarize current architecture and risks.
+M1: Create Node project AND .cursor/rules, install deps, implement health,
+    basic socket lifecycle and tests. Do not defer Cursor rules to the end.
+M2: Add Dockerfile/Compose/env config and validate operational health.
+M3: Implement Laravel ticket issuer and Node atomic secure redemption.
+M4: Add lifecycle reliability, limits, logging, shutdown and negative tests.
+M5: Execute end-to-end smoke checks, finalize README/CI/rules and handoff.
+
+Complete this implementation, not just a proposal. Do not ask for approval
+for routine safe changes. If blocked, produce the partial working result
+with exact errors and remaining steps rather than inventing a green status.
+
+9. FINAL REPORT
+
+Report by repository:
+- New and modified files, especially all eight `.cursor/rules/*.mdc` files.
+- Rule metadata/coverage and adherence to current Cursor requirements.
+- Node LTS runtime + exact dependency versions, lockfile, build strategy.
+- API ticket issuance and security/Redis contract, with concrete examples.
+- Compose ports/bindings, local and physical-device URLs, health endpoints.
+- WS protocol sample, heartbeat, error codes, revocation caveats.
+- Commands actually executed and pass/fail/blocked status.
+- Existing failures versus introduced failures; fixes, if any.
+- Remaining Phase 5B (private battle rooms, invites, PvP) ONLY as a plan.
+
+ABSOLUTE RESTRICTIONS:
+Do NOT modify existing battle damage/XP/creature progression rules.
+Do NOT introduce PvP gameplay, WebSockets in the existing Laravel runtime,
+Socket.IO, Reverb, additional databases or real-time client integration now.
+Do NOT run migrate:fresh, db:wipe, down -v, key:generate --force, remove
+volumes, overwrite secrets, push/commit, or create remote GitHub repos.
+
+START NOW: Read the entire Phase 5A spec. Create the standalone Node service
+and its `.cursor/rules` EARLY, then implement M0–M5 and verify the gateway.

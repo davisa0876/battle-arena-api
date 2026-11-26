@@ -1,0 +1,211 @@
+{
+  "/api/pvp/rooms": {
+    "post": {
+      "tags": ["PvP"],
+      "summary": "Create a private PvP lobby and invite by exact handle",
+      "description": "Requires trainer level >= 6. Creates a pending invitation. Idempotent via Idempotency-Key header or body idempotency_key. features.pvp remains false; no combat/XP.",
+      "security": [{ "sanctum": [] }],
+      "parameters": [
+        {
+          "name": "Idempotency-Key",
+          "in": "header",
+          "required": false,
+          "schema": { "type": "string", "maxLength": 120 }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": ["invitee_handle"],
+              "properties": {
+                "invitee_handle": { "type": "string", "minLength": 3, "maxLength": 24 },
+                "idempotency_key": { "type": "string", "maxLength": 120 }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Lobby + invitation created",
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PvpCreateRoomResponse" }
+            }
+          }
+        },
+        "401": { "$ref": "#/components/responses/Unauthenticated" },
+        "403": { "$ref": "#/components/schemas/PvpError" },
+        "409": { "$ref": "#/components/schemas/PvpError" },
+        "422": { "$ref": "#/components/responses/ValidationError" },
+        "429": { "$ref": "#/components/responses/TooManyRequests" }
+      }
+    }
+  },
+  "/api/pvp/invitations": {
+    "get": {
+      "tags": ["PvP"],
+      "summary": "List sent or received private invitations",
+      "security": [{ "sanctum": [] }],
+      "parameters": [
+        {
+          "name": "box",
+          "in": "query",
+          "required": true,
+          "schema": { "type": "string", "enum": ["received", "sent"] }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Invitation list",
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PvpInvitationListResponse" }
+            }
+          }
+        },
+        "401": { "$ref": "#/components/responses/Unauthenticated" },
+        "422": { "$ref": "#/components/responses/ValidationError" }
+      }
+    }
+  },
+  "/api/pvp/invitations/{invitation}/accept": {
+    "post": {
+      "tags": ["PvP"],
+      "summary": "Accept a pending invitation",
+      "security": [{ "sanctum": [] }],
+      "parameters": [
+        { "name": "invitation", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+        { "name": "Idempotency-Key", "in": "header", "required": false, "schema": { "type": "string" } }
+      ],
+      "responses": {
+        "200": {
+          "description": "Ready lobby",
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PvpRoomResponse" }
+            }
+          }
+        },
+        "401": { "$ref": "#/components/responses/Unauthenticated" },
+        "403": { "$ref": "#/components/schemas/PvpError" },
+        "404": { "$ref": "#/components/schemas/PvpError" },
+        "409": { "$ref": "#/components/schemas/PvpError" },
+        "429": { "$ref": "#/components/responses/TooManyRequests" }
+      }
+    }
+  },
+  "/api/pvp/invitations/{invitation}/decline": {
+    "post": {
+      "tags": ["PvP"],
+      "summary": "Decline a pending invitation",
+      "security": [{ "sanctum": [] }],
+      "parameters": [
+        { "name": "invitation", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+        { "name": "Idempotency-Key", "in": "header", "required": false, "schema": { "type": "string" } }
+      ],
+      "responses": {
+        "200": { "description": "Invitation declined" },
+        "401": { "$ref": "#/components/responses/Unauthenticated" },
+        "404": { "$ref": "#/components/schemas/PvpError" },
+        "429": { "$ref": "#/components/responses/TooManyRequests" }
+      }
+    }
+  },
+  "/api/pvp/invitations/{invitation}/cancel": {
+    "post": {
+      "tags": ["PvP"],
+      "summary": "Cancel a sent pending invitation",
+      "security": [{ "sanctum": [] }],
+      "parameters": [
+        { "name": "invitation", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+        { "name": "Idempotency-Key", "in": "header", "required": false, "schema": { "type": "string" } }
+      ],
+      "responses": {
+        "200": { "description": "Invitation cancelled and lobby closed" },
+        "401": { "$ref": "#/components/responses/Unauthenticated" },
+        "404": { "$ref": "#/components/schemas/PvpError" },
+        "429": { "$ref": "#/components/responses/TooManyRequests" }
+      }
+    }
+  },
+  "/api/pvp/rooms/{room}": {
+    "get": {
+      "tags": ["PvP"],
+      "summary": "Fetch authoritative private lobby state",
+      "security": [{ "sanctum": [] }],
+      "parameters": [
+        { "name": "room", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+      ],
+      "responses": {
+        "200": {
+          "description": "Room state for an active member",
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PvpRoomResponse" }
+            }
+          }
+        },
+        "401": { "$ref": "#/components/responses/Unauthenticated" },
+        "404": { "$ref": "#/components/schemas/PvpError" }
+      }
+    }
+  },
+  "/api/pvp/rooms/{room}/leave": {
+    "post": {
+      "tags": ["PvP"],
+      "summary": "Leave and close a private lobby (no XP)",
+      "security": [{ "sanctum": [] }],
+      "parameters": [
+        { "name": "room", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+        { "name": "Idempotency-Key", "in": "header", "required": false, "schema": { "type": "string" } }
+      ],
+      "responses": {
+        "200": {
+          "description": "Lobby closed",
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PvpRoomResponse" }
+            }
+          }
+        },
+        "401": { "$ref": "#/components/responses/Unauthenticated" },
+        "404": { "$ref": "#/components/schemas/PvpError" },
+        "429": { "$ref": "#/components/responses/TooManyRequests" }
+      }
+    }
+  },
+  "/api/pvp/rooms/{room}/subscription-grants": {
+    "post": {
+      "tags": ["PvP"],
+      "summary": "Issue a one-use WebSocket room subscription grant",
+      "description": "Member-only. Redis-backed one-time grant redeemed by Node via GETDEL. Cache-Control: no-store. connection.ready alone is not room authorization.",
+      "security": [{ "sanctum": [] }],
+      "parameters": [
+        { "name": "room", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+      ],
+      "responses": {
+        "201": {
+          "description": "Grant issued",
+          "headers": {
+            "Cache-Control": {
+              "schema": { "type": "string", "example": "no-store" }
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PvpRoomGrantResponse" }
+            }
+          }
+        },
+        "401": { "$ref": "#/components/responses/Unauthenticated" },
+        "404": { "$ref": "#/components/schemas/PvpError" },
+        "429": { "$ref": "#/components/responses/TooManyRequests" },
+        "503": { "$ref": "#/components/schemas/PvpError" }
+      }
+    }
+  }
+}

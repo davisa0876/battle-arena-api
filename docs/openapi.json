@@ -3,7 +3,7 @@
     "info": {
         "title": "Battle Arena API",
         "version": "3.1.0",
-        "description": "Phase 3+ contract: accounts, profiles, owned creatures, game rules and PvE arena battles.\n\nAuthentication: web uses Sanctum cookie sessions (call `GET /sanctum/csrf-cookie` first, send\n`X-XSRF-TOKEN`, omit `device_name`). Mobile sends `device_name` and receives a bearer token.\nLocalized messages follow `Accept-Language` (en, fr, pt-BR, it, es).\n\nDocs are maintained as Horus-style JSON fragments under `resources/docs/swagger/`."
+        "description": "Phase 3+ contract: accounts, profiles, owned creatures, game rules, PvE arena battles,\nand Phase 5B.1 private PvP lobbies/invitations (no combat/XP yet).\n\nAuthentication: web uses Sanctum cookie sessions (call `GET /sanctum/csrf-cookie` first, send\n`X-XSRF-TOKEN`, omit `device_name`). Mobile sends `device_name` and receives a bearer token.\nLocalized messages follow `Accept-Language` (en, fr, pt-BR, it, es).\n\nDocs are maintained as Horus-style JSON fragments under `resources/docs/swagger/`."
     },
     "servers": [
         {
@@ -35,6 +35,14 @@
         {
             "name": "PvE",
             "description": "Solo arena battles"
+        },
+        {
+            "name": "PvP",
+            "description": "Private lobbies and invitations (no combat in 5B.1)"
+        },
+        {
+            "name": "Realtime",
+            "description": "WebSocket ticket bootstrap for the Node gateway"
         }
     ],
     "paths": {
@@ -1377,6 +1385,488 @@
                     }
                 }
             }
+        },
+        "/api/pvp/rooms": {
+            "post": {
+                "tags": [
+                    "PvP"
+                ],
+                "summary": "Create a private PvP lobby and invite by exact handle",
+                "description": "Requires trainer level >= 6. Creates a pending invitation. Idempotent via Idempotency-Key header or body idempotency_key. features.pvp remains false; no combat/XP.",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 120
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "invitee_handle"
+                                ],
+                                "properties": {
+                                    "invitee_handle": {
+                                        "type": "string",
+                                        "minLength": 3,
+                                        "maxLength": 24
+                                    },
+                                    "idempotency_key": {
+                                        "type": "string",
+                                        "maxLength": 120
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Lobby + invitation created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpCreateRoomResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/PvpError"
+                    },
+                    "409": {
+                        "$ref": "#/components/schemas/PvpError"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/api/pvp/invitations": {
+            "get": {
+                "tags": [
+                    "PvP"
+                ],
+                "summary": "List sent or received private invitations",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "box",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "received",
+                                "sent"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Invitation list",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpInvitationListResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationError"
+                    }
+                }
+            }
+        },
+        "/api/pvp/invitations/{invitation}/accept": {
+            "post": {
+                "tags": [
+                    "PvP"
+                ],
+                "summary": "Accept a pending invitation",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "invitation",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Ready lobby",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpRoomResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/PvpError"
+                    },
+                    "404": {
+                        "$ref": "#/components/schemas/PvpError"
+                    },
+                    "409": {
+                        "$ref": "#/components/schemas/PvpError"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/api/pvp/invitations/{invitation}/decline": {
+            "post": {
+                "tags": [
+                    "PvP"
+                ],
+                "summary": "Decline a pending invitation",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "invitation",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Invitation declined"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "404": {
+                        "$ref": "#/components/schemas/PvpError"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/api/pvp/invitations/{invitation}/cancel": {
+            "post": {
+                "tags": [
+                    "PvP"
+                ],
+                "summary": "Cancel a sent pending invitation",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "invitation",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Invitation cancelled and lobby closed"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "404": {
+                        "$ref": "#/components/schemas/PvpError"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/api/pvp/rooms/{room}": {
+            "get": {
+                "tags": [
+                    "PvP"
+                ],
+                "summary": "Fetch authoritative private lobby state",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "room",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Room state for an active member",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpRoomResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "404": {
+                        "$ref": "#/components/schemas/PvpError"
+                    }
+                }
+            }
+        },
+        "/api/pvp/rooms/{room}/leave": {
+            "post": {
+                "tags": [
+                    "PvP"
+                ],
+                "summary": "Leave and close a private lobby (no XP)",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "room",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Lobby closed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpRoomResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "404": {
+                        "$ref": "#/components/schemas/PvpError"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/api/pvp/rooms/{room}/subscription-grants": {
+            "post": {
+                "tags": [
+                    "PvP"
+                ],
+                "summary": "Issue a one-use WebSocket room subscription grant",
+                "description": "Member-only. Redis-backed one-time grant redeemed by Node via GETDEL. Cache-Control: no-store. connection.ready alone is not room authorization.",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "room",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Grant issued",
+                        "headers": {
+                            "Cache-Control": {
+                                "schema": {
+                                    "type": "string",
+                                    "example": "no-store"
+                                }
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpRoomGrantResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "404": {
+                        "$ref": "#/components/schemas/PvpError"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    },
+                    "503": {
+                        "$ref": "#/components/schemas/PvpError"
+                    }
+                }
+            }
+        },
+        "/api/realtime/tickets": {
+            "post": {
+                "tags": [
+                    "Realtime"
+                ],
+                "summary": "Issue a one-time WebSocket authentication ticket",
+                "description": "Requires Sanctum (web cookie session or mobile bearer). Returns a short-lived single-use ticket for upgrading to the Node.js gateway. Never put Sanctum credentials in WebSocket URLs. Cache-Control: no-store.",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Ticket issued",
+                        "headers": {
+                            "Cache-Control": {
+                                "schema": {
+                                    "type": "string",
+                                    "example": "no-store"
+                                }
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RealtimeTicketResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    },
+                    "503": {
+                        "description": "Ticket store (Redis) unavailable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "message"
+                                    ],
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "components": {
@@ -1953,6 +2443,226 @@
                             },
                             "reward": {
                                 "$ref": "#/components/schemas/PveReward"
+                            }
+                        }
+                    }
+                }
+            },
+            "PvpError": {
+                "type": "object",
+                "required": [
+                    "message"
+                ],
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    },
+                    "code": {
+                        "type": "string"
+                    }
+                }
+            },
+            "PvpPublicPlayer": {
+                "type": "object",
+                "nullable": true,
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "handle": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "display_name": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "avatar_url": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                }
+            },
+            "PvpInvitation": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "room_id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "expires_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "inviter": {
+                        "$ref": "#/components/schemas/PvpPublicPlayer"
+                    },
+                    "invitee": {
+                        "$ref": "#/components/schemas/PvpPublicPlayer"
+                    },
+                    "allowed_actions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "PvpRoom": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "integer"
+                    },
+                    "closed_reason": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "host": {
+                        "$ref": "#/components/schemas/PvpPublicPlayer"
+                    },
+                    "members": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "user_id": {
+                                    "type": "integer"
+                                },
+                                "role": {
+                                    "type": "string"
+                                },
+                                "joined_at": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "nullable": true
+                                },
+                                "player": {
+                                    "$ref": "#/components/schemas/PvpPublicPlayer"
+                                }
+                            }
+                        }
+                    },
+                    "invitation": {
+                        "$ref": "#/components/schemas/PvpInvitation"
+                    },
+                    "allowed_actions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "phase_note": {
+                        "type": "string"
+                    }
+                }
+            },
+            "PvpCreateRoomResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "object",
+                        "properties": {
+                            "room": {
+                                "$ref": "#/components/schemas/PvpRoom"
+                            },
+                            "invitation": {
+                                "$ref": "#/components/schemas/PvpInvitation"
+                            }
+                        }
+                    }
+                }
+            },
+            "PvpRoomResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "$ref": "#/components/schemas/PvpRoom"
+                    }
+                }
+            },
+            "PvpInvitationListResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PvpInvitation"
+                        }
+                    }
+                }
+            },
+            "PvpRoomGrantResponse": {
+                "type": "object",
+                "required": [
+                    "data"
+                ],
+                "properties": {
+                    "data": {
+                        "type": "object",
+                        "required": [
+                            "grant",
+                            "expires_in",
+                            "room_id"
+                        ],
+                        "properties": {
+                            "grant": {
+                                "type": "string"
+                            },
+                            "expires_in": {
+                                "type": "integer",
+                                "example": 30
+                            },
+                            "room_id": {
+                                "type": "string",
+                                "format": "uuid"
+                            }
+                        }
+                    }
+                }
+            },
+            "RealtimeTicketResponse": {
+                "type": "object",
+                "required": [
+                    "data"
+                ],
+                "properties": {
+                    "data": {
+                        "type": "object",
+                        "required": [
+                            "ticket",
+                            "expires_in",
+                            "ws_url"
+                        ],
+                        "properties": {
+                            "ticket": {
+                                "type": "string",
+                                "description": "Opaque single-use secret. Present once; never logged."
+                            },
+                            "expires_in": {
+                                "type": "integer",
+                                "example": 30,
+                                "description": "Seconds until the ticket expires if unused."
+                            },
+                            "ws_url": {
+                                "type": "string",
+                                "example": "ws://localhost:3001/ws",
+                                "description": "Public WebSocket URL for clients (not the Compose hostname)."
                             }
                         }
                     }

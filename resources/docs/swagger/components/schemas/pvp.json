@@ -1,0 +1,105 @@
+{
+  "PvpError": {
+    "type": "object",
+    "required": ["message"],
+    "properties": {
+      "message": { "type": "string" },
+      "code": { "type": "string" }
+    }
+  },
+  "PvpPublicPlayer": {
+    "type": "object",
+    "nullable": true,
+    "properties": {
+      "id": { "type": "integer" },
+      "handle": { "type": "string", "nullable": true },
+      "display_name": { "type": "string", "nullable": true },
+      "avatar_url": { "type": "string", "nullable": true }
+    }
+  },
+  "PvpInvitation": {
+    "type": "object",
+    "properties": {
+      "id": { "type": "string", "format": "uuid" },
+      "room_id": { "type": "string", "format": "uuid" },
+      "status": { "type": "string" },
+      "expires_at": { "type": "string", "format": "date-time", "nullable": true },
+      "inviter": { "$ref": "#/components/schemas/PvpPublicPlayer" },
+      "invitee": { "$ref": "#/components/schemas/PvpPublicPlayer" },
+      "allowed_actions": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    }
+  },
+  "PvpRoom": {
+    "type": "object",
+    "properties": {
+      "id": { "type": "string", "format": "uuid" },
+      "status": { "type": "string" },
+      "version": { "type": "integer" },
+      "closed_reason": { "type": "string", "nullable": true },
+      "host": { "$ref": "#/components/schemas/PvpPublicPlayer" },
+      "members": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "user_id": { "type": "integer" },
+            "role": { "type": "string" },
+            "joined_at": { "type": "string", "format": "date-time", "nullable": true },
+            "player": { "$ref": "#/components/schemas/PvpPublicPlayer" }
+          }
+        }
+      },
+      "invitation": { "$ref": "#/components/schemas/PvpInvitation" },
+      "allowed_actions": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "phase_note": { "type": "string" }
+    }
+  },
+  "PvpCreateRoomResponse": {
+    "type": "object",
+    "properties": {
+      "data": {
+        "type": "object",
+        "properties": {
+          "room": { "$ref": "#/components/schemas/PvpRoom" },
+          "invitation": { "$ref": "#/components/schemas/PvpInvitation" }
+        }
+      }
+    }
+  },
+  "PvpRoomResponse": {
+    "type": "object",
+    "properties": {
+      "data": { "$ref": "#/components/schemas/PvpRoom" }
+    }
+  },
+  "PvpInvitationListResponse": {
+    "type": "object",
+    "properties": {
+      "data": {
+        "type": "array",
+        "items": { "$ref": "#/components/schemas/PvpInvitation" }
+      }
+    }
+  },
+  "PvpRoomGrantResponse": {
+    "type": "object",
+    "required": ["data"],
+    "properties": {
+      "data": {
+        "type": "object",
+        "required": ["grant", "expires_in", "room_id"],
+        "properties": {
+          "grant": { "type": "string" },
+          "expires_in": { "type": "integer", "example": 30 },
+          "room_id": { "type": "string", "format": "uuid" }
+        }
+      }
+    }
+  }
+}

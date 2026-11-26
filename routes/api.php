@@ -19,6 +19,15 @@ use App\Http\Controllers\Api\Profile\MeController;
 use App\Http\Controllers\Api\Profile\PublicPlayerController;
 use App\Http\Controllers\Api\Profile\UpdatePasswordController;
 use App\Http\Controllers\Api\Profile\UpdateProfileController;
+use App\Http\Controllers\Api\Pvp\AcceptInvitationController;
+use App\Http\Controllers\Api\Pvp\CancelInvitationController;
+use App\Http\Controllers\Api\Pvp\CreateRoomController;
+use App\Http\Controllers\Api\Pvp\DeclineInvitationController;
+use App\Http\Controllers\Api\Pvp\IssueSubscriptionGrantController;
+use App\Http\Controllers\Api\Pvp\LeaveRoomController;
+use App\Http\Controllers\Api\Pvp\ListInvitationsController;
+use App\Http\Controllers\Api\Pvp\ShowRoomController;
+use App\Http\Controllers\Api\Realtime\IssueTicketController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\ReadyController;
 use Illuminate\Support\Facades\Route;
@@ -52,6 +61,9 @@ Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 've
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/logout', LogoutController::class);
 
+    Route::post('/realtime/tickets', IssueTicketController::class)
+        ->middleware('throttle:realtime-tickets');
+
     Route::get('/me', [MeController::class, 'show']);
     Route::patch('/me/profile', UpdateProfileController::class);
     Route::patch('/me/password', UpdatePasswordController::class);
@@ -77,6 +89,22 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('throttle:pve-actions');
     Route::post('/pve/battles/{battle}/abandon', \App\Http\Controllers\Api\Pve\AbandonBattleController::class)
         ->middleware('throttle:pve-actions');
+
+    // Phase 5B.1 — private PvP lobbies / invitations (no combat)
+    Route::post('/pvp/rooms', CreateRoomController::class)
+        ->middleware('throttle:pvp-mutations');
+    Route::get('/pvp/invitations', ListInvitationsController::class);
+    Route::post('/pvp/invitations/{invitation}/accept', AcceptInvitationController::class)
+        ->middleware('throttle:pvp-mutations');
+    Route::post('/pvp/invitations/{invitation}/decline', DeclineInvitationController::class)
+        ->middleware('throttle:pvp-mutations');
+    Route::post('/pvp/invitations/{invitation}/cancel', CancelInvitationController::class)
+        ->middleware('throttle:pvp-mutations');
+    Route::get('/pvp/rooms/{room}', ShowRoomController::class);
+    Route::post('/pvp/rooms/{room}/leave', LeaveRoomController::class)
+        ->middleware('throttle:pvp-mutations');
+    Route::post('/pvp/rooms/{room}/subscription-grants', IssueSubscriptionGrantController::class)
+        ->middleware('throttle:pvp-grants');
 });
 
 require __DIR__.'/swagger.php';

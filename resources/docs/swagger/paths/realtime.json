@@ -1,0 +1,47 @@
+{
+  "/api/realtime/tickets": {
+    "post": {
+      "tags": ["Realtime"],
+      "summary": "Issue a one-time WebSocket authentication ticket",
+      "description": "Requires Sanctum (web cookie session or mobile bearer). Returns a short-lived single-use ticket for upgrading to the Node.js gateway. Never put Sanctum credentials in WebSocket URLs. Cache-Control: no-store.",
+      "security": [{ "sanctum": [] }],
+      "responses": {
+        "201": {
+          "description": "Ticket issued",
+          "headers": {
+            "Cache-Control": {
+              "schema": { "type": "string", "example": "no-store" }
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RealtimeTicketResponse"
+              }
+            }
+          }
+        },
+        "401": {
+          "$ref": "#/components/responses/Unauthenticated"
+        },
+        "429": {
+          "$ref": "#/components/responses/TooManyRequests"
+        },
+        "503": {
+          "description": "Ticket store (Redis) unavailable",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["message"],
+                "properties": {
+                  "message": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
