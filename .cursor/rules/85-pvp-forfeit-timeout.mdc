@@ -1,0 +1,13 @@
+---
+description: Phase 5B.4 PvP forfeit and action-deadline rules
+globs: "{app/Application/Pvp/**/*.php,app/Http/Controllers/Api/Pvp/**/*.php,app/Domain/Pvp/**/*.php,app/Console/Commands/AdjudicatePvpActionDeadlinesCommand.php,config/pvp.php}"
+alwaysApply: false
+---
+
+# PvP Forfeit & Deadlines (API)
+
+- Explicit `POST /api/pvp/battles/{battle}/forfeit` is the only combat abandon path. Room `leave` must not terminate active battles.
+- Terminal noncombat endings use `end_reason` `forfeit` or `timeout` with proposed 0/0 XP — never accidental +20/+10 combat rewards.
+- Persist UTC `action_deadline_at` on phase transitions; adjudicate only via Laravel + row locks when `PVP_TURN_TIMEOUT_ENABLED=true`.
+- WebSocket disconnect/refresh must never forfeit. Redis hints stay best-effort after commit.
+- Keep `features.pvp` false until explicit owner release approval.

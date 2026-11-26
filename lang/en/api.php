@@ -40,7 +40,7 @@ return [
         'room_closed' => 'This private lobby is closed.',
         'idempotency_conflict' => 'Idempotency key was reused with a different payload.',
         'grant_unavailable' => 'Room subscription grants are temporarily unavailable.',
-        'already_in_battle' => 'Cannot leave or cancel while a PvP battle is in progress.',
+        'already_in_battle' => 'Cannot leave a private lobby during an active PvP battle. Use the explicit forfeit action instead.',
         'room_not_ready' => 'The private lobby is not ready for combat setup.',
         'selection_locked' => 'Your creature selection is already locked.',
         'wrong_turn' => 'It is not your turn for this action.',
@@ -49,6 +49,8 @@ return [
         'already_finished' => 'This PvP battle is already finished.',
         'creature_not_owned' => 'You do not own that creature.',
         'selection_required' => 'Select an owned creature before ready.',
+        'forfeit_disabled' => 'Explicit forfeit is temporarily disabled.',
+        'connection_interrupted' => 'Connection interrupted; reconnecting. Your turn timer may continue.',
     ],
     'evolution_reasons' => [
         'requirements_not_defined' => 'Evolution is not available yet.',

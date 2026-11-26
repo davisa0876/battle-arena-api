@@ -117,6 +117,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('throttle:pvp-mutations');
     Route::post('/pvp/battles/{battle}/defend', \App\Http\Controllers\Api\Pvp\DefendBattleController::class)
         ->middleware('throttle:pvp-mutations');
+    // Phase 5B.4 — explicit forfeit (features.pvp remains false; leave during battle stays blocked)
+    Route::post('/pvp/battles/{battle}/forfeit', \App\Http\Controllers\Api\Pvp\ForfeitBattleController::class)
+        ->middleware('throttle:pvp-mutations');
 });
 
 require __DIR__.'/swagger.php';

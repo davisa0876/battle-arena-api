@@ -40,7 +40,7 @@ return [
         'room_closed' => 'Ce salon prive est ferme.',
         'idempotency_conflict' => 'La cle d\'idempotence a ete reutilisee avec une autre charge utile.',
         'grant_unavailable' => 'Les autorisations d\'abonnement au salon sont temporairement indisponibles.',
-        'already_in_battle' => 'Impossible de quitter ou d\'annuler pendant un combat JcJ.',
+        'already_in_battle' => 'Impossible de quitter un salon pendant un combat JcJ actif. Utilisez l\'abandon explicite.',
         'room_not_ready' => 'Le salon prive n\'est pas pret pour le combat.',
         'selection_locked' => 'Votre selection de creature est deja verrouillee.',
         'wrong_turn' => 'Ce n\'est pas votre tour pour cette action.',
@@ -49,6 +49,8 @@ return [
         'already_finished' => 'Ce combat JcJ est deja termine.',
         'creature_not_owned' => 'Vous ne possedez pas cette creature.',
         'selection_required' => 'Selectionnez une creature possedee avant d\'etre pret.',
+        'forfeit_disabled' => 'L\'abandon explicite est temporairement desactive.',
+        'connection_interrupted' => 'Connexion interrompue ; reconnexion. Le minuteur de tour peut continuer.',
     ],
     'evolution_reasons' => [
         'requirements_not_defined' => 'L\'évolution n\'est pas encore disponible.',

@@ -40,7 +40,7 @@ return [
         'room_closed' => 'Este lobby privado esta cerrado.',
         'idempotency_conflict' => 'La clave de idempotencia se reutilizo con otro payload.',
         'grant_unavailable' => 'Los permisos de suscripcion al lobby no estan disponibles temporalmente.',
-        'already_in_battle' => 'No puedes salir mientras hay un combate JcJ en curso.',
+        'already_in_battle' => 'No puedes salir del lobby durante un combate JcJ activo. Usa la rendicion explicita.',
         'room_not_ready' => 'El lobby no esta listo para el combate.',
         'selection_locked' => 'Tu seleccion de criatura ya esta bloqueada.',
         'wrong_turn' => 'No es tu turno para esta accion.',
@@ -49,6 +49,8 @@ return [
         'already_finished' => 'Este combate JcJ ya termino.',
         'creature_not_owned' => 'No posees esa criatura.',
         'selection_required' => 'Selecciona una criatura antes de estar listo.',
+        'forfeit_disabled' => 'La rendicion explicita esta temporalmente desactivada.',
+        'connection_interrupted' => 'Conexion interrumpida; reconectando. El temporizador de turno puede continuar.',
     ],
     'evolution_reasons' => [
         'requirements_not_defined' => 'La evolución aún no está disponible.',

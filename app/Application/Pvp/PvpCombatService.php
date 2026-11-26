@@ -4,15 +4,12 @@ declare(strict_types=1);
 
 namespace App\Application\Pvp;
 
-use App\Application\Battles\BattleRewardService;
 use App\Application\Battles\CombatantFactory;
 use App\Application\Battles\PveRulesProvider;
 use App\Application\Pvp\Exceptions\PvpLobbyException;
 use App\Domain\Battle\BattleRewardPolicy;
 use App\Domain\Battle\CombatSide;
 use App\Domain\Battle\DefenseType;
-use App\Domain\Battle\Pvp\PvpBattlePhase;
-use App\Domain\Battle\Pvp\PvpBattleState;
 use App\Domain\Battle\Pvp\PvpTurnEngine;
 use App\Domain\Battle\Random\SeededRandomSource;
 use App\Domain\OwnedCreatures\Models\OwnedCreature;
@@ -21,7 +18,6 @@ use App\Domain\Pvp\Models\PvpBattleAction;
 use App\Domain\Pvp\Models\PvpBattleCombatant;
 use App\Domain\Pvp\Models\PvpBattleCombatantMove;
 use App\Domain\Pvp\Models\PvpBattleEvent;
-use App\Domain\Pvp\Models\PvpBattleReward;
 use App\Domain\Pvp\Models\PvpBattleSelection;
 use App\Domain\Pvp\Models\PvpRoom;
 use App\Domain\Pvp\Models\PvpRoomMember;
@@ -38,9 +34,10 @@ final class PvpCombatService
         private readonly PvpTurnEngine $turns,
         private readonly PvpBattleStateMapper $mapper,
         private readonly PvpBattlePresenter $presenter,
-        private readonly BattleRewardService $rewards,
         private readonly PvpRealtimePublisher $publisher,
         private readonly BattleRewardPolicy $rewardPolicy,
+        private readonly PvpBattleTerminalService $terminal,
+        private readonly PvpActionDeadlineService $deadlines,
     ) {}
 
     /**
@@ -248,6 +245,8 @@ final class PvpCombatService
             $room->status = PvpRoom::STATUS_IN_BATTLE;
             $room->save();
 
+            $this->deadlines->refreshDeadline($battle);
+
             return ['battle' => $battle->fresh(['combatants.moves']), 'created' => true, 'room' => $room->fresh()];
         });
 
@@ -350,6 +349,8 @@ final class PvpCombatService
                 return $replay;
             }
 
+            $this->rejectIfTimedOut($battle);
+
             if ($battle->isFinished()) {
                 throw PvpLobbyException::alreadyFinished();
             }
@@ -389,6 +390,13 @@ final class PvpCombatService
             $this->mapper->applyTransition($battle, $transition);
             $battle = $battle->fresh(['combatants.moves']);
 
+            if ($battle->isFinished()) {
+                $this->deadlines->clearDeadline($battle);
+            } else {
+                $this->deadlines->refreshDeadline($battle);
+            }
+            $battle = $battle->fresh(['combatants.moves']);
+
             $this->storeAction($battle, $user, 'attack', $idempotencyKey, $expectedVersion, $payload, [
                 'battle' => $this->presenter->present($battle, $user),
             ]);
@@ -423,6 +431,8 @@ final class PvpCombatService
                 return $replay;
             }
 
+            $this->rejectIfTimedOut($battle);
+
             if ($battle->isFinished()) {
                 throw PvpLobbyException::alreadyFinished();
             }
@@ -454,7 +464,10 @@ final class PvpCombatService
 
             $rewardPayload = null;
             if ($transition->nextState->isFinished()) {
-                $rewardPayload = $this->finalizeRewardsAndRoom($battle);
+                $rewardPayload = $this->terminal->finalizeCombatRewards($battle);
+                $battle = $battle->fresh(['combatants.moves', 'rewards']);
+            } else {
+                $this->deadlines->refreshDeadline($battle);
                 $battle = $battle->fresh(['combatants.moves']);
             }
 
@@ -480,74 +493,74 @@ final class PvpCombatService
     }
 
     /**
-     * @return array<string, mixed>|null
+     * Explicit authenticated forfeit. Either participant may forfeit during an active battle.
+     *
+     * @return array{status:int, body:array<string, mixed>}
      */
-    private function finalizeRewardsAndRoom(PvpBattle $battle): ?array
+    public function forfeit(User $user, string $battleId, int $expectedVersion, string $idempotencyKey): array
     {
-        if ($battle->rewards_processed) {
-            return PvpBattleReward::query()->where('battle_id', $battle->id)->get()
-                ->map(fn (PvpBattleReward $r) => [
-                    'user_id' => (int) $r->user_id,
-                    'outcome' => $r->outcome,
-                    'xp_awarded' => (int) $r->xp_awarded,
-                ])->all();
+        if (! (bool) config('pvp.forfeit_enabled', true)) {
+            throw new PvpLobbyException('PVP_FORFEIT_DISABLED', __('api.pvp.forfeit_disabled'), 422);
         }
 
-        $winner = User::query()->with('progress')->findOrFail((int) $battle->winner_user_id);
-        $loser = User::query()->with('progress')->findOrFail((int) $battle->loser_user_id);
+        $payload = ['expected_version' => $expectedVersion];
 
-        $winnerResult = $this->rewards->awardForCompletedMatch($winner, [
-            'match_id' => (string) $battle->id,
-            'mode' => BattleRewardPolicy::MODE_PVP,
-            'outcome' => BattleRewardPolicy::OUTCOME_WIN,
-            'verified' => true,
-        ]);
-        $loserResult = $this->rewards->awardForCompletedMatch($loser, [
-            'match_id' => (string) $battle->id,
-            'mode' => BattleRewardPolicy::MODE_PVP,
-            'outcome' => BattleRewardPolicy::OUTCOME_LOSS,
-            'verified' => true,
-        ]);
+        $out = DB::transaction(function () use ($user, $battleId, $expectedVersion, $idempotencyKey, $payload): array {
+            $battle = $this->lockBattleWithRoom($battleId);
+            $this->assertParticipant($battle, $user);
 
-        PvpBattleReward::query()->create([
-            'id' => (string) Str::uuid(),
-            'battle_id' => $battle->id,
-            'user_id' => $winner->id,
-            'outcome' => BattleRewardPolicy::OUTCOME_WIN,
-            'xp_awarded' => (int) $winnerResult->event->amount,
-            'trainer_levels_gained' => (int) $winnerResult->levelsGained,
-            'idempotency_key' => sprintf('battle:pvp:%s:%d', $battle->id, $winner->id),
-        ]);
-        PvpBattleReward::query()->create([
-            'id' => (string) Str::uuid(),
-            'battle_id' => $battle->id,
-            'user_id' => $loser->id,
-            'outcome' => BattleRewardPolicy::OUTCOME_LOSS,
-            'xp_awarded' => (int) $loserResult->event->amount,
-            'trainer_levels_gained' => (int) $loserResult->levelsGained,
-            'idempotency_key' => sprintf('battle:pvp:%s:%d', $battle->id, $loser->id),
-        ]);
+            $replay = $this->replayAction($battle, $user, $idempotencyKey, $payload);
+            if ($replay !== null) {
+                return $replay;
+            }
 
-        $battle->rewards_processed = true;
-        $battle->save();
+            if ($battle->isFinished()) {
+                throw PvpLobbyException::alreadyFinished();
+            }
+            if ((int) $battle->version !== $expectedVersion) {
+                throw PvpLobbyException::versionConflict();
+            }
 
-        $room = PvpRoom::query()->whereKey($battle->room_id)->lockForUpdate()->first();
-        if ($room !== null && $room->status === PvpRoom::STATUS_IN_BATTLE) {
-            $room->status = PvpRoom::STATUS_CLOSED;
-            $room->closed_reason = PvpRoom::CLOSED_BATTLE_COMPLETED;
-            $room->closed_at = now();
-            $room->version = (int) $room->version + 1;
-            $room->save();
+            $forfeiterId = (int) $user->id;
+            $winnerId = (int) $battle->host_user_id === $forfeiterId
+                ? (int) $battle->guest_user_id
+                : (int) $battle->host_user_id;
+            $phaseAtForfeit = (string) $battle->phase;
+            $hadPending = is_array($battle->pending_attack_snapshot) && $battle->pending_attack_snapshot !== [];
 
-            $this->publisher->publish('pvp.room.changed', [
-                'room_id' => $room->id,
-                'version' => (int) $room->version,
-            ], targetRoomId: $room->id);
-        }
+            $rewardPayload = $this->terminal->finalizeNonCombat(
+                $battle,
+                PvpBattle::END_REASON_FORFEIT,
+                $winnerId,
+                $forfeiterId,
+                forfeitingUserId: $forfeiterId,
+                timedOutUserId: null,
+                eventPayload: [
+                    'phase_at_forfeit' => $phaseAtForfeit,
+                    'had_pending_attack' => $hadPending,
+                ],
+            );
+
+            $battle = $battle->fresh(['combatants.moves', 'rewards']);
+
+            $this->storeAction($battle, $user, 'forfeit', $idempotencyKey, $expectedVersion, $payload, [
+                'battle' => $this->presenter->present($battle, $user),
+                'rewards' => $rewardPayload,
+            ]);
+
+            return ['battle' => $battle, 'rewards' => $rewardPayload];
+        });
+
+        $this->publishBattleChanged($out['battle']);
 
         return [
-            ['user_id' => (int) $winner->id, 'outcome' => 'win', 'xp_awarded' => (int) $winnerResult->event->amount],
-            ['user_id' => (int) $loser->id, 'outcome' => 'loss', 'xp_awarded' => (int) $loserResult->event->amount],
+            'status' => 200,
+            'body' => [
+                'data' => [
+                    'battle' => $this->presenter->present($out['battle']->fresh(['combatants.moves', 'rewards']), $user),
+                    'rewards' => $out['rewards'],
+                ],
+            ],
         ];
     }
 
@@ -560,6 +573,15 @@ final class PvpCombatService
         PvpRoom::query()->whereKey($battle->room_id)->lockForUpdate()->first();
 
         return PvpBattle::query()->whereKey($battleId)->lockForUpdate()->firstOrFail();
+    }
+
+    private function rejectIfTimedOut(PvpBattle $battle): void
+    {
+        $rewards = $this->deadlines->resolveIfOverdue($battle);
+        if ($rewards !== null) {
+            $this->publishBattleChanged($battle->fresh());
+            throw PvpLobbyException::alreadyFinished();
+        }
     }
 
     private function assertParticipant(PvpBattle $battle, User $user): void

@@ -440,6 +440,67 @@
       }
     }
   },
+  "/api/pvp/battles/{battle}/forfeit": {
+    "post": {
+      "tags": ["PvP"],
+      "summary": "Explicitly forfeit an active PvP battle",
+      "description": "Participant-only. Requires Idempotency-Key and expected_version. Ends the battle with end_reason=forfeit, proposed noncombat XP 0/0, and does not resolve a pending attack as combat. Room leave during active combat remains blocked. features.pvp remains false; no matchmaking.",
+      "security": [{ "sanctum": [] }],
+      "parameters": [
+        { "name": "battle", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+        {
+          "name": "Idempotency-Key",
+          "in": "header",
+          "required": true,
+          "schema": { "type": "string", "maxLength": 120 }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": ["expected_version"],
+              "properties": {
+                "expected_version": { "type": "integer", "minimum": 1 },
+                "idempotency_key": { "type": "string", "maxLength": 120 }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Battle forfeited; actor-relative battle + rewards",
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PvpActionResponse" }
+            }
+          }
+        },
+        "401": { "$ref": "#/components/responses/Unauthenticated" },
+        "404": { "$ref": "#/components/schemas/PvpError" },
+        "409": {
+          "description": "PVP_VERSION_CONFLICT, PVP_ALREADY_FINISHED, IDEMPOTENCY_CONFLICT",
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PvpError" }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation, IDEMPOTENCY_REQUIRED, or PVP_FORFEIT_DISABLED",
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PvpError" }
+            }
+          }
+        },
+        "429": { "$ref": "#/components/responses/TooManyRequests" }
+      }
+    }
+  },
   "/api/pvp/battles/{battle}/defend": {
     "post": {
       "tags": ["PvP"],

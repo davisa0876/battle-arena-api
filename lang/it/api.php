@@ -40,7 +40,7 @@ return [
         'room_closed' => 'Questa lobby privata e chiusa.',
         'idempotency_conflict' => 'La chiave di idempotenza e stata riutilizzata con un payload diverso.',
         'grant_unavailable' => 'Le autorizzazioni di iscrizione alla lobby non sono temporaneamente disponibili.',
-        'already_in_battle' => 'Non puoi uscire durante una battaglia PvP.',
+        'already_in_battle' => 'Non puoi lasciare la lobby durante una battaglia PvP attiva. Usa la resa esplicita.',
         'room_not_ready' => 'La lobby non e pronta per il combattimento.',
         'selection_locked' => 'La selezione della creatura e gia bloccata.',
         'wrong_turn' => 'Non e il tuo turno per questa azione.',
@@ -49,6 +49,8 @@ return [
         'already_finished' => 'Questa battaglia PvP e gia terminata.',
         'creature_not_owned' => 'Non possiedi quella creatura.',
         'selection_required' => 'Seleziona una creatura prima di essere pronto.',
+        'forfeit_disabled' => 'La resa esplicita e temporaneamente disabilitata.',
+        'connection_interrupted' => 'Connessione interrotta; riconnessione. Il timer del turno puo continuare.',
     ],
     'evolution_reasons' => [
         'requirements_not_defined' => 'L\'evoluzione non è ancora disponibile.',

@@ -25,6 +25,10 @@ class PvpBattle extends Model
 
     public const END_REASON_COMBAT = 'combat';
 
+    public const END_REASON_FORFEIT = 'forfeit';
+
+    public const END_REASON_TIMEOUT = 'timeout';
+
     protected $table = 'pvp_battles';
 
     protected $fillable = [
@@ -45,11 +49,17 @@ class PvpBattle extends Model
         'reward_snapshot',
         'winner_user_id',
         'loser_user_id',
+        'forfeiting_user_id',
+        'timed_out_user_id',
         'end_reason',
         'rewards_processed',
         'last_event_sequence',
         'started_at',
         'finished_at',
+        'action_deadline_at',
+        'deadline_actor_user_id',
+        'deadline_phase',
+        'deadline_version',
     ];
 
     protected function casts(): array
@@ -65,6 +75,8 @@ class PvpBattle extends Model
             'last_event_sequence' => 'integer',
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
+            'action_deadline_at' => 'datetime',
+            'deadline_version' => 'integer',
         ];
     }
 

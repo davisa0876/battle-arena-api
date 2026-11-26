@@ -18,6 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('telescope:prune')->daily();
+        // Safe no-op while PVP_TURN_TIMEOUT_ENABLED=false; never mass-forfeit on backlog alone.
+        $schedule->command('pvp:adjudicate-action-deadlines')->everyMinute()->withoutOverlapping();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();

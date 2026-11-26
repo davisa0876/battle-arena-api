@@ -44,6 +44,10 @@ final class PvpBattlePresenter
             'current_attacker_user_id' => (int) $battle->current_attacker_user_id,
             'current_defender_user_id' => (int) $battle->current_defender_user_id,
             'pending_attack' => $pending,
+            'action_deadline_at' => optional($battle->action_deadline_at)?->toIso8601String(),
+            'deadline_actor_user_id' => $battle->deadline_actor_user_id !== null
+                ? (int) $battle->deadline_actor_user_id
+                : null,
             'me' => $meRow ? $this->combatantPublic($meRow, includeMoves: true) : null,
             'opponent' => $oppRow ? $this->combatantPublic($oppRow, includeMoves: false) : null,
             'allowed_actions' => $this->allowedActions($battle, $viewerId),
@@ -52,6 +56,8 @@ final class PvpBattlePresenter
                 'winner_user_id' => $battle->winner_user_id !== null ? (int) $battle->winner_user_id : null,
                 'loser_user_id' => $battle->loser_user_id !== null ? (int) $battle->loser_user_id : null,
                 'end_reason' => $battle->end_reason,
+                'forfeiting_user_id' => $battle->forfeiting_user_id !== null ? (int) $battle->forfeiting_user_id : null,
+                'timed_out_user_id' => $battle->timed_out_user_id !== null ? (int) $battle->timed_out_user_id : null,
             ] : null,
             'rewards' => $battle->isFinished()
                 ? $battle->rewards()->get()->map(static fn ($r) => [
@@ -71,14 +77,23 @@ final class PvpBattlePresenter
         if ($battle->isFinished()) {
             return [];
         }
-        if ($battle->phase === PvpBattle::PHASE_AWAITING_ATTACK && (int) $battle->current_attacker_user_id === $viewerId) {
-            return ['attack', 'recover', 'basic_strike'];
-        }
-        if ($battle->phase === PvpBattle::PHASE_AWAITING_DEFENSE && (int) $battle->current_defender_user_id === $viewerId) {
-            return array_map(static fn (DefenseType $d) => $d->value, DefenseType::cases());
+
+        $actions = [];
+        if ((bool) config('pvp.forfeit_enabled', true) && $battle->isParticipant($viewerId)) {
+            $actions[] = 'forfeit';
         }
 
-        return [];
+        if ($battle->phase === PvpBattle::PHASE_AWAITING_ATTACK && (int) $battle->current_attacker_user_id === $viewerId) {
+            return array_merge($actions, ['attack', 'recover', 'basic_strike']);
+        }
+        if ($battle->phase === PvpBattle::PHASE_AWAITING_DEFENSE && (int) $battle->current_defender_user_id === $viewerId) {
+            return array_merge(
+                $actions,
+                array_map(static fn (DefenseType $d) => $d->value, DefenseType::cases()),
+            );
+        }
+
+        return $actions;
     }
 
     /**
