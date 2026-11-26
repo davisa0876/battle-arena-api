@@ -74,4 +74,43 @@ final class PvpLobbyException extends RuntimeException
     {
         return new self('PVP_GRANT_UNAVAILABLE', __('api.pvp.grant_unavailable'), 503);
     }
+
+    public static function alreadyInBattle(): self
+    {
+        return new self('PVP_ALREADY_IN_BATTLE', __('api.pvp.already_in_battle'), 409);
+    }
+
+    public static function roomNotReady(): self
+    {
+        return new self('PVP_ROOM_NOT_READY', __('api.pvp.room_not_ready'), 409);
+    }
+
+    public static function selectionLocked(): self
+    {
+        return new self('PVP_SELECTION_LOCKED', __('api.pvp.selection_locked'), 409);
+    }
+
+    public static function wrongTurn(): self
+    {
+        return new self('PVP_WRONG_TURN', __('api.pvp.wrong_turn'), 409);
+    }
+
+    public static function phaseConflict(string $message = ''): self
+    {
+        return new self(
+            'PVP_PHASE_CONFLICT',
+            $message !== '' ? $message : __('api.pvp.phase_conflict'),
+            409,
+        );
+    }
+
+    public static function versionConflict(): self
+    {
+        return new self('PVP_VERSION_CONFLICT', __('api.pvp.version_conflict'), 409);
+    }
+
+    public static function alreadyFinished(): self
+    {
+        return new self('PVP_ALREADY_FINISHED', __('api.pvp.already_finished'), 409);
+    }
 }

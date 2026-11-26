@@ -17,6 +17,8 @@ class PvpRoom extends Model
 
     public const STATUS_READY = 'ready';
 
+    public const STATUS_IN_BATTLE = 'in_battle';
+
     public const STATUS_CLOSED = 'closed';
 
     public const CLOSED_CANCELLED = 'cancelled';
@@ -26,6 +28,8 @@ class PvpRoom extends Model
     public const CLOSED_EXPIRED = 'expired';
 
     public const CLOSED_LEFT = 'left';
+
+    public const CLOSED_BATTLE_COMPLETED = 'battle_completed';
 
     protected $table = 'pvp_rooms';
 
@@ -70,8 +74,23 @@ class PvpRoom extends Model
         return $this->hasMany(PvpInvitation::class, 'room_id');
     }
 
+    public function selections(): HasMany
+    {
+        return $this->hasMany(PvpBattleSelection::class, 'room_id');
+    }
+
+    public function battle(): HasOne
+    {
+        return $this->hasOne(PvpBattle::class, 'room_id');
+    }
+
     public function isOpen(): bool
     {
         return $this->status !== self::STATUS_CLOSED;
+    }
+
+    public function isInBattle(): bool
+    {
+        return $this->status === self::STATUS_IN_BATTLE;
     }
 }

@@ -13,7 +13,7 @@ use OpenApi\Attributes as OA;
 #[OA\Info(
     version: '3.1.0',
     title: 'Battle Arena API',
-    description: 'Accounts, profiles, collection, game rules, PvE and private PvP lobbies. Prefer resources/docs/swagger fragments (synced via openapi:sync).'
+    description: 'Accounts, profiles, collection, game rules, PvE, private PvP lobbies and authoritative two-human PvP combat. Prefer resources/docs/swagger fragments (synced via openapi:sync).'
 )]
 #[OA\Server(url: 'http://localhost:8000', description: 'Local Compose API')]
 #[OA\SecurityScheme(
@@ -29,7 +29,7 @@ use OpenApi\Attributes as OA;
 #[OA\Tag(name: 'Game', description: 'Published game rules and feature flags')]
 #[OA\Tag(name: 'Catalog', description: 'Public creature catalog')]
 #[OA\Tag(name: 'PvE', description: 'Solo arena battles')]
-#[OA\Tag(name: 'PvP', description: 'Private lobbies and invitations (no combat in 5B.1)')]
+#[OA\Tag(name: 'PvP', description: 'Private lobbies, invitations, creature selection and two-human combat (features.pvp remains false)')]
 #[OA\Tag(name: 'Realtime', description: 'WebSocket ticket bootstrap for the Node gateway')]
 final class OpenApiSpec
 {

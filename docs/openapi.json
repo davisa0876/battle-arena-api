@@ -1810,6 +1810,465 @@
                 }
             }
         },
+        "/api/pvp/rooms/{room}/selection": {
+            "put": {
+                "tags": [
+                    "PvP"
+                ],
+                "summary": "Select (or change) an owned creature for the private lobby",
+                "description": "Member-only. Requires room status ready and matching expected_room_version. Selection can change until locked via ready. features.pvp remains false; no public matchmaking.",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "room",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 120
+                        },
+                        "description": "Preferred idempotency header. Falls back to body `idempotency_key`."
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PvpSelectCreatureRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Lobby combat state with my_selection",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpLobbyCombatResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/PvpError"
+                    },
+                    "404": {
+                        "$ref": "#/components/schemas/PvpError"
+                    },
+                    "409": {
+                        "description": "PVP_ROOM_NOT_READY, PVP_SELECTION_LOCKED, PVP_VERSION_CONFLICT, PVP_ALREADY_IN_BATTLE, etc.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation or PVP_CREATURE_NOT_OWNED",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpError"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/api/pvp/rooms/{room}/ready": {
+            "post": {
+                "tags": [
+                    "PvP"
+                ],
+                "summary": "Lock creature selection and mark ready",
+                "description": "When both members are ready, starts exactly one PvP battle and returns lobby state plus actor-relative battle snapshot. features.pvp remains false; no matchmaking.",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "room",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 120
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PvpReadyRoomRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Lobby combat state; includes battle when the match has started",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpLobbyCombatResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/PvpError"
+                    },
+                    "404": {
+                        "$ref": "#/components/schemas/PvpError"
+                    },
+                    "409": {
+                        "description": "PVP_ROOM_NOT_READY, PVP_VERSION_CONFLICT, PVP_ALREADY_IN_BATTLE, etc.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation or PVP_SELECTION_REQUIRED",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpError"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/api/pvp/battles/{battle}": {
+            "get": {
+                "tags": [
+                    "PvP"
+                ],
+                "summary": "Get actor-relative PvP battle state",
+                "description": "Participant-only. Returns viewer-relative `me` / `opponent` (opponent moves omitted). Clients rehydrate from this after missing WebSocket hints. features.pvp remains false; no matchmaking.",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "battle",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpBattleResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "404": {
+                        "description": "PVP_NOT_FOUND (non-member or missing)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/pvp/battles/{battle}/events": {
+            "get": {
+                "tags": [
+                    "PvP"
+                ],
+                "summary": "List PvP battle events after a sequence",
+                "description": "Participant-only. Optional `after_sequence` query skips already-seen events (default 0). Cap 200.",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "battle",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "after_sequence",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "default": 0
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpBattleEventsResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "404": {
+                        "description": "PVP_NOT_FOUND",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/pvp/battles/{battle}/attack": {
+            "post": {
+                "tags": [
+                    "PvP"
+                ],
+                "summary": "Submit a PvP attack (or recover-skip)",
+                "description": "Attacker-only while phase is awaiting_attack. Provide exactly one of `move_id`, `basic_strike`, or `recover`. Requires Idempotency-Key and expected_version. On 409 (PVP_WRONG_TURN / PVP_VERSION_CONFLICT / PVP_PHASE_CONFLICT / PVP_ALREADY_FINISHED), rehydrate via GET battle. features.pvp remains false; no matchmaking.",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "battle",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 120
+                        },
+                        "description": "Required. Falls back to body `idempotency_key` if header omitted."
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PvpAttackRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Attack committed; actor-relative battle state",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpBattleResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "404": {
+                        "$ref": "#/components/schemas/PvpError"
+                    },
+                    "409": {
+                        "description": "PVP_WRONG_TURN, PVP_PHASE_CONFLICT, PVP_VERSION_CONFLICT, PVP_ALREADY_FINISHED, PVP_IDEMPOTENCY_CONFLICT",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation, IDEMPOTENCY_REQUIRED, or PVP_INVALID_ATTACK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpError"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/api/pvp/battles/{battle}/defend": {
+            "post": {
+                "tags": [
+                    "PvP"
+                ],
+                "summary": "Submit a PvP defense and resolve the exchange",
+                "description": "Defender-only while phase is awaiting_defense. Requires Idempotency-Key and expected_version. Resolves damage/PP/stamina server-side; may finish the battle and include rewards. features.pvp remains false; no matchmaking.",
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "battle",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 120
+                        },
+                        "description": "Required. Falls back to body `idempotency_key` if header omitted."
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PvpDefendRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Defense resolved; may include rewards when the match finished",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpActionResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "404": {
+                        "$ref": "#/components/schemas/PvpError"
+                    },
+                    "409": {
+                        "description": "PVP_WRONG_TURN, PVP_PHASE_CONFLICT, PVP_VERSION_CONFLICT, PVP_ALREADY_FINISHED, PVP_IDEMPOTENCY_CONFLICT",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation, IDEMPOTENCY_REQUIRED, or PVP_INVALID_DEFENSE",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PvpError"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
         "/api/realtime/tickets": {
             "post": {
                 "tags": [
@@ -2458,7 +2917,33 @@
                         "type": "string"
                     },
                     "code": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Stable machine code. Combat examples: PVP_WRONG_TURN, PVP_PHASE_CONFLICT, PVP_VERSION_CONFLICT, PVP_ALREADY_FINISHED, PVP_ROOM_NOT_READY, PVP_SELECTION_LOCKED, PVP_ALREADY_IN_BATTLE, PVP_CREATURE_NOT_OWNED, PVP_SELECTION_REQUIRED, PVP_IDEMPOTENCY_CONFLICT, IDEMPOTENCY_REQUIRED.",
+                        "enum": [
+                            "PVP_NOT_FOUND",
+                            "PVP_FORBIDDEN",
+                            "PVP_NOT_ELIGIBLE",
+                            "PVP_SELF_INVITE",
+                            "PVP_INVITEE_UNAVAILABLE",
+                            "PVP_ALREADY_IN_LOBBY",
+                            "PVP_INVITE_NOT_PENDING",
+                            "PVP_INVITE_EXPIRED",
+                            "PVP_ROOM_CLOSED",
+                            "PVP_IDEMPOTENCY_CONFLICT",
+                            "PVP_GRANT_UNAVAILABLE",
+                            "PVP_ALREADY_IN_BATTLE",
+                            "PVP_ROOM_NOT_READY",
+                            "PVP_SELECTION_LOCKED",
+                            "PVP_WRONG_TURN",
+                            "PVP_PHASE_CONFLICT",
+                            "PVP_VERSION_CONFLICT",
+                            "PVP_ALREADY_FINISHED",
+                            "PVP_CREATURE_NOT_OWNED",
+                            "PVP_SELECTION_REQUIRED",
+                            "PVP_INVALID_ATTACK",
+                            "PVP_INVALID_DEFENSE",
+                            "IDEMPOTENCY_REQUIRED"
+                        ]
                     }
                 }
             },
@@ -2633,6 +3118,463 @@
                                 "format": "uuid"
                             }
                         }
+                    }
+                }
+            },
+            "PvpResourceBar": {
+                "type": "object",
+                "properties": {
+                    "current": {
+                        "type": "integer"
+                    },
+                    "max": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "PvpBattleMove": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "slot": {
+                        "type": "integer"
+                    },
+                    "slug": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "power": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "accuracy": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "type_slug": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "damage_class": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "pp": {
+                        "$ref": "#/components/schemas/PvpResourceBar"
+                    },
+                    "stamina_cost": {
+                        "type": "integer"
+                    },
+                    "can_use": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "PvpCombatant": {
+                "type": "object",
+                "nullable": true,
+                "description": "Actor-relative combatant. Moves are included only on `me`, never on `opponent`.",
+                "properties": {
+                    "user_id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "level": {
+                        "type": "integer"
+                    },
+                    "types": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "hp": {
+                        "$ref": "#/components/schemas/PvpResourceBar"
+                    },
+                    "stamina": {
+                        "$ref": "#/components/schemas/PvpResourceBar"
+                    },
+                    "stats": {
+                        "type": "object",
+                        "additionalProperties": true
+                    },
+                    "moves": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PvpBattleMove"
+                        },
+                        "description": "Present only for the viewing actor (`me`)."
+                    }
+                }
+            },
+            "PvpPendingAttack": {
+                "type": "object",
+                "nullable": true,
+                "description": "Committed attack summary visible to the defender. No damage/HP/RNG secrets.",
+                "properties": {
+                    "move_name": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "move_slug": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "is_basic_strike": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "PvpBattleOutcome": {
+                "type": "object",
+                "nullable": true,
+                "properties": {
+                    "winner_user_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "loser_user_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "end_reason": {
+                        "type": "string",
+                        "nullable": true,
+                        "example": "combat"
+                    }
+                }
+            },
+            "PvpBattle": {
+                "type": "object",
+                "description": "Authoritative actor-relative PvP battle snapshot. `me` / `opponent` are viewer-relative.",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "room_id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "mode": {
+                        "type": "string",
+                        "enum": [
+                            "pvp"
+                        ]
+                    },
+                    "phase": {
+                        "type": "string",
+                        "enum": [
+                            "awaiting_attack",
+                            "awaiting_defense",
+                            "finished"
+                        ]
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "finished"
+                        ]
+                    },
+                    "version": {
+                        "type": "integer"
+                    },
+                    "turn_number": {
+                        "type": "integer"
+                    },
+                    "rules_version": {
+                        "type": "string"
+                    },
+                    "current_attacker_user_id": {
+                        "type": "integer"
+                    },
+                    "current_defender_user_id": {
+                        "type": "integer"
+                    },
+                    "pending_attack": {
+                        "$ref": "#/components/schemas/PvpPendingAttack"
+                    },
+                    "me": {
+                        "$ref": "#/components/schemas/PvpCombatant"
+                    },
+                    "opponent": {
+                        "$ref": "#/components/schemas/PvpCombatant"
+                    },
+                    "allowed_actions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "last_event_sequence": {
+                        "type": "integer"
+                    },
+                    "outcome": {
+                        "$ref": "#/components/schemas/PvpBattleOutcome"
+                    }
+                }
+            },
+            "PvpBattleResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "$ref": "#/components/schemas/PvpBattle"
+                    }
+                }
+            },
+            "PvpBattleEvent": {
+                "type": "object",
+                "properties": {
+                    "sequence": {
+                        "type": "integer"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "actor": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "target": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "payload": {
+                        "type": "object",
+                        "additionalProperties": true
+                    },
+                    "occurred_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    }
+                }
+            },
+            "PvpBattleEventsResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PvpBattleEvent"
+                        }
+                    }
+                }
+            },
+            "PvpLobbyCombatState": {
+                "type": "object",
+                "description": "Room state during creature selection / ready. Opponent selection stays hidden until both are locked.",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "integer"
+                    },
+                    "my_selection": {
+                        "type": "object",
+                        "nullable": true,
+                        "properties": {
+                            "owned_creature_id": {
+                                "type": "integer"
+                            },
+                            "locked": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "selections_revealed": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "user_id": {
+                                    "type": "integer"
+                                },
+                                "owned_creature_id": {
+                                    "type": "integer"
+                                },
+                                "locked": {
+                                    "type": "boolean"
+                                }
+                            }
+                        }
+                    },
+                    "battle_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
+                    },
+                    "battle": {
+                        "$ref": "#/components/schemas/PvpBattle"
+                    },
+                    "phase_note": {
+                        "type": "string"
+                    }
+                }
+            },
+            "PvpLobbyCombatResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "$ref": "#/components/schemas/PvpLobbyCombatState"
+                    }
+                }
+            },
+            "PvpSelectCreatureRequest": {
+                "type": "object",
+                "required": [
+                    "owned_creature_id",
+                    "expected_room_version"
+                ],
+                "properties": {
+                    "owned_creature_id": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "expected_room_version": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "idempotency_key": {
+                        "type": "string",
+                        "maxLength": 120
+                    }
+                }
+            },
+            "PvpReadyRoomRequest": {
+                "type": "object",
+                "required": [
+                    "expected_room_version"
+                ],
+                "properties": {
+                    "expected_room_version": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "idempotency_key": {
+                        "type": "string",
+                        "maxLength": 120
+                    }
+                }
+            },
+            "PvpAttackRequest": {
+                "type": "object",
+                "required": [
+                    "expected_version"
+                ],
+                "properties": {
+                    "move_id": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "nullable": true
+                    },
+                    "basic_strike": {
+                        "type": "boolean",
+                        "description": "Only when no equipped move has PP left."
+                    },
+                    "recover": {
+                        "type": "boolean",
+                        "description": "Recover stamina and skip the attack when moves still have PP but none are affordable."
+                    },
+                    "expected_version": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "idempotency_key": {
+                        "type": "string",
+                        "maxLength": 120
+                    }
+                },
+                "description": "Provide exactly one of move_id, basic_strike, or recover. Idempotency-Key header (or body idempotency_key) is required."
+            },
+            "PvpDefendRequest": {
+                "type": "object",
+                "required": [
+                    "defense",
+                    "expected_version"
+                ],
+                "properties": {
+                    "defense": {
+                        "type": "string",
+                        "enum": [
+                            "endure",
+                            "block",
+                            "dodge",
+                            "recover"
+                        ]
+                    },
+                    "expected_version": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "idempotency_key": {
+                        "type": "string",
+                        "maxLength": 120
+                    }
+                },
+                "description": "Idempotency-Key header (or body idempotency_key) is required."
+            },
+            "PvpRewardRow": {
+                "type": "object",
+                "properties": {
+                    "user_id": {
+                        "type": "integer"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "enum": [
+                            "win",
+                            "loss"
+                        ]
+                    },
+                    "xp_awarded": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "PvpActionResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/PvpBattle"
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "battle": {
+                                        "$ref": "#/components/schemas/PvpBattle"
+                                    },
+                                    "rewards": {
+                                        "type": "array",
+                                        "nullable": true,
+                                        "items": {
+                                            "$ref": "#/components/schemas/PvpRewardRow"
+                                        }
+                                    }
+                                }
+                            }
+                        ]
                     }
                 }
             },

@@ -289,19 +289,27 @@ XP needed to advance from `level` to `level + 1` is `ceil(100 * 1.5 ^ (level - 1
 
 Authoritative private 1:1 lobbies live in Laravel (`/api/pvp/*`). Trainers must be level ≥ 6. Invitations resolve by exact `PlayerProfile.handle`. Node only relays post-commit notification hints after clients authenticate with realtime tickets and redeem one-use room subscription grants.
 
+Spec: `docs/PHASE5B_PVP_PRIVATE_ROOMS_SPEC_EN.md`.
+
+## Phase 5B.2 — Authoritative two-human PvP combat
+
+Server-authoritative selection → ready → attack/defense turns → KO with exactly-once PvP XP (+20 winner / +10 loser). Laravel owns all combat; Node relays hint-only `pvp.battle.changed` (`room_id`, `battle_id`, `version`, `last_event_sequence`). Shared math lives in `CombatExchangeCalculator`; PvP turn loop is `PvpTurnEngine` (separate from PvE AI phases).
+
 ```bash
 docker compose exec api php artisan migrate
 docker compose exec api php artisan openapi:sync
 docker compose exec api php artisan test --filter=Pvp
+docker compose exec api php artisan test --filter=BattleEngineTest
 ```
 
-`features.pvp` remains `false` until combat ships. Lobby leave/cancel never awards XP.
+`features.pvp` remains `false` until the Phase 5B.4 release gate. Disconnect/forfeit timeouts are deferred to 5B.4. Arena UI is Phase 5B.3.
 
-Spec: `docs/PHASE5B_PVP_PRIVATE_ROOMS_SPEC_EN.md`.
+Spec: `docs/PHASE5B2_PVP_BATTLE_ENGINE_SPEC_EN.md`. Cursor rule: `.cursor/rules/80-pvp-combat-engine.mdc`.
 
 ## Known limitations
 
-- PvP combat, matchmaking, and rankings are not implemented (private lobby/invite only)
+- Public PvP feature flag, matchmaking, rankings, and disconnect/forfeit are not enabled yet
+- Full Web/Expo battle arena UI is Phase 5B.3
 - Evolution execution remains locked
 - Creature/type names are not yet domain-localized; UI chrome is fully translated on clients
 - Alternate forms / species grouping not modeled yet

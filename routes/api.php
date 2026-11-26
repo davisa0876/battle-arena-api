@@ -105,6 +105,18 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('throttle:pvp-mutations');
     Route::post('/pvp/rooms/{room}/subscription-grants', IssueSubscriptionGrantController::class)
         ->middleware('throttle:pvp-grants');
+
+    // Phase 5B.2 — authoritative two-human PvP combat (features.pvp remains false)
+    Route::put('/pvp/rooms/{room}/selection', \App\Http\Controllers\Api\Pvp\SelectCreatureController::class)
+        ->middleware('throttle:pvp-mutations');
+    Route::post('/pvp/rooms/{room}/ready', \App\Http\Controllers\Api\Pvp\ReadyRoomController::class)
+        ->middleware('throttle:pvp-mutations');
+    Route::get('/pvp/battles/{battle}', \App\Http\Controllers\Api\Pvp\ShowBattleController::class);
+    Route::get('/pvp/battles/{battle}/events', \App\Http\Controllers\Api\Pvp\BattleEventsController::class);
+    Route::post('/pvp/battles/{battle}/attack', \App\Http\Controllers\Api\Pvp\AttackBattleController::class)
+        ->middleware('throttle:pvp-mutations');
+    Route::post('/pvp/battles/{battle}/defend', \App\Http\Controllers\Api\Pvp\DefendBattleController::class)
+        ->middleware('throttle:pvp-mutations');
 });
 
 require __DIR__.'/swagger.php';

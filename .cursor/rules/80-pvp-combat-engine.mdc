@@ -1,0 +1,15 @@
+---
+description: Authoritative two-human PvP combat rules (Phase 5B.2)
+globs: "{app/Domain/Battle/Pvp/**/*.php,app/Application/Pvp/PvpCombat*.php,app/Application/Pvp/PvpBattle*.php,app/Http/Controllers/Api/Pvp/*Battle*.php,app/Http/Controllers/Api/Pvp/*Creature*.php,app/Http/Controllers/Api/Pvp/Ready*.php,tests/Feature/Pvp/PvpBattle*.php,tests/Unit/Domain/Battle/Pvp*.php}"
+alwaysApply: false
+---
+
+# PvP Combat Engine (Phase 5B.2)
+
+- Laravel alone owns selections, turns, damage, KO, and XP. Node only relays `pvp.battle.changed` hints.
+- Reuse `CombatExchangeCalculator` for math. Do not fork a second damage formula.
+- Attack commitment is immutable; spend PP/stamina/HP only at defense resolution (recover-skip is the exception).
+- Outcomes use `winner_user_id` / `loser_user_id`, never client-supplied verified flags.
+- Award PvP XP (+20/+10) exactly once per user per match via `BattleRewardService` with durable reward rows.
+- Lock order: `pvp_rooms` then `pvp_battles`. Block lobby leave while `in_battle`.
+- Keep `features.pvp = false` until the 5B.4 release gate.

@@ -8,7 +8,9 @@ use App\Domain\Battle\Random\RandomSource;
 use DomainException;
 
 /**
- * Pure, stateless battle transition engine: (state + action + randomness) => (state + events).
+ * Pure, stateless PvE battle transition engine: (state + action + randomness) => (state + events).
+ *
+ * Combat math is delegated to {@see CombatExchangeCalculator}. Phase transitions remain PvE-specific.
  *
  * Flow (spec 2.4 / 4.4):
  *  1. resolveAttackExchange(Player, ...)  -> opponent survives => awaiting_player_defense WITHOUT intent;
@@ -26,6 +28,10 @@ use DomainException;
  */
 final class BattleEngine
 {
+    public function __construct(
+        private readonly CombatExchangeCalculator $exchange = new CombatExchangeCalculator,
+    ) {}
+
     /**
      * Player attacks; the opponent AI's already-chosen defense is resolved in the same exchange.
      *
@@ -156,196 +162,47 @@ final class BattleEngine
         RandomSource $random,
         TypeEffectivenessChart $chart,
     ): BattleTransition {
-        $rules = $state->rules;
-        $defenderSide = $attackerSide->other();
         $attacker = $state->combatant($attackerSide);
-        $defender = $state->combatant($defenderSide);
+        $defender = $state->combatant($attackerSide->other());
 
-        $this->assertCanAttack($attacker, $moveSlot, $move);
+        $result = $this->exchange->resolve(
+            attacker: $attacker,
+            defender: $defender,
+            attackerSide: $attackerSide,
+            moveSlot: $moveSlot,
+            move: $move,
+            defenseType: $defenseType,
+            rules: $state->rules,
+            random: $random,
+            chart: $chart,
+            eventSequence: $state->lastEventSequence,
+            round: $state->round,
+        );
 
-        $defenseCost = $rules->defenseStaminaCost($defenseType);
-        if (! ResourceCalculator::canAfford($defender->staminaCurrent, $defenseCost)) {
-            throw new DomainException("Not enough stamina for {$defenseType->value}.");
-        }
+        $events = $result->events;
+        $sequence = $result->lastEventSequence;
+        $attacker = $result->attacker;
+        $defender = $result->defender;
 
-        $events = [];
-        $sequence = $state->lastEventSequence;
-        $emit = function (BattleEventType $type, ?CombatSide $actor, ?CombatSide $target, array $payload = []) use (&$events, &$sequence): void {
-            $events[] = new BattleEvent(++$sequence, $type, $actor, $target, $payload);
-        };
-
-        // 1. Attack declared.
-        $emit(BattleEventType::AttackStarted, $attackerSide, $defenderSide, [
-            'move_slot' => $moveSlot,
-            'move_slug' => $move->slug,
-            'move_name' => $move->name,
-            'type_slug' => $move->typeSlug,
-            'damage_class' => $move->damageClass,
-            'is_basic_strike' => $move->isBasicStrike,
-            'round' => $state->round,
-        ]);
-
-        // 2. Attacker pays PP (not for basic_strike) and stamina, even if the attack later fails.
-        $staminaBefore = $attacker->staminaCurrent;
-        $staminaAfter = ResourceCalculator::applySpend($staminaBefore, $move->staminaCost, $attacker->staminaMax);
-        $attacker = $attacker->withStamina($staminaAfter);
-
-        $ppBefore = null;
-        $ppAfter = null;
-        if (! $move->isBasicStrike) {
-            $ppBefore = $attacker->move((int) $moveSlot)->ppCurrent;
-            $ppAfter = ResourceCalculator::applySpend($ppBefore, 1, $attacker->move((int) $moveSlot)->ppMax);
-            $attacker = $attacker->withMovePp((int) $moveSlot, $ppAfter);
-        }
-
-        $emit(BattleEventType::ResourcesSpent, $attackerSide, $attackerSide, [
-            'move_slug' => $move->slug,
-            'pp_spent' => $move->isBasicStrike ? 0 : 1,
-            'pp_before' => $ppBefore,
-            'pp_after' => $ppAfter,
-            'stamina_spent' => $staminaBefore - $staminaAfter,
-            'stamina_before' => $staminaBefore,
-            'stamina_after' => $staminaAfter,
-        ]);
-        if (! $move->isBasicStrike) {
-            $emit(BattleEventType::PpChanged, $attackerSide, $attackerSide, [
-                'move_slug' => $move->slug,
-                'before' => $ppBefore,
-                'after' => $ppAfter,
-            ]);
-        }
-        if ($staminaBefore !== $staminaAfter) {
-            $emit(BattleEventType::StaminaChanged, $attackerSide, $attackerSide, [
-                'reason' => 'attack_cost',
-                'before' => $staminaBefore,
-                'after' => $staminaAfter,
-            ]);
-        }
-
-        // 3. Defender reaction: cost / credit applied exactly once.
-        $emit(BattleEventType::DefenseSelected, $defenderSide, $attackerSide, [
-            'defense' => $defenseType->value,
-            'stamina_cost' => $defenseCost,
-        ]);
-
-        $defStaminaBefore = $defender->staminaCurrent;
-        $defStamina = ResourceCalculator::applySpend($defStaminaBefore, $defenseCost, $defender->staminaMax);
-        if ($defenseCost > 0) {
-            $emit(BattleEventType::StaminaChanged, $defenderSide, $defenderSide, [
-                'reason' => 'defense_cost',
-                'before' => $defStaminaBefore,
-                'after' => $defStamina,
-            ]);
-        }
-        if ($defenseType === DefenseType::Recover) {
-            $recovered = ResourceCalculator::applyRecover($defStamina, $rules->recoverStamina, $defender->staminaMax);
-            $emit(BattleEventType::StaminaRecovered, $defenderSide, $defenderSide, [
-                'amount' => $recovered - $defStamina,
-                'before' => $defStamina,
-                'after' => $recovered,
-            ]);
-            if ($recovered !== $defStamina) {
-                $emit(BattleEventType::StaminaChanged, $defenderSide, $defenderSide, [
-                    'reason' => 'recover',
-                    'before' => $defStamina,
-                    'after' => $recovered,
-                ]);
-            }
-            $defStamina = $recovered;
-        }
-        $defender = $defender->withStamina($defStamina);
-
-        // 4. Accuracy, then dodge, then damage.
-        $connected = true;
-        if ($move->accuracy < 100) {
-            $roll = $random->nextInt(1, 100);
-            if ($roll > $move->accuracy) {
-                $connected = false;
-                $emit(BattleEventType::AttackMissed, $attackerSide, $defenderSide, [
-                    'move_slug' => $move->slug,
-                    'accuracy' => $move->accuracy,
-                    'damage' => 0,
-                ]);
-            }
-        }
-
-        if ($connected && $defenseType === DefenseType::Dodge) {
-            if ($random->nextFloat() < $rules->dodgeChance) {
-                $connected = false;
-                $emit(BattleEventType::DefenseDodged, $defenderSide, $attackerSide, [
-                    'move_slug' => $move->slug,
-                    'dodge_chance' => $rules->dodgeChance,
-                    'damage' => 0,
-                ]);
-            }
-        }
-
-        if ($connected) {
-            $typeMultiplier = $chart->multiplier($move->typeSlug, $defender->types);
-            $randomFactor = DamageCalculator::rollRandomFactor($rules, $random);
-            $result = DamageCalculator::calculate(
-                $attacker,
-                $defender,
-                $move,
-                $typeMultiplier,
-                $randomFactor,
-                $rules->defenseDamageMultiplier($defenseType),
-                $rules,
-            );
-
-            $hpBefore = $defender->hpCurrent;
-            $defender = $defender->withHp($hpBefore - $result->damage);
-            $hpAfter = $defender->hpCurrent;
-
-            if ($defenseType === DefenseType::Block && ! $result->isImmune) {
-                $emit(BattleEventType::DamageBlocked, $defenderSide, $attackerSide, [
-                    'move_slug' => $move->slug,
-                    'damage_before_block' => $result->modifiedDamage,
-                    'damage_after_block' => $result->damage,
-                    'defense_multiplier' => $result->defenseMultiplier,
-                ]);
-            }
-
-            $emit(BattleEventType::DamageApplied, $attackerSide, $defenderSide, array_merge([
-                'move_slug' => $move->slug,
-                'defense' => $defenseType->value,
-                'hp_before' => $hpBefore,
-                'hp_after' => $hpAfter,
-            ], $result->toPayload()));
-
-            if ($hpBefore !== $hpAfter) {
-                $emit(BattleEventType::HpChanged, $defenderSide, $defenderSide, [
-                    'before' => $hpBefore,
-                    'after' => $hpAfter,
-                    'max' => $defender->hpMax,
-                ]);
-            }
-        }
-
-        // 5. Knockout and next phase.
         $phase = BattlePhase::AwaitingPlayerAttack;
         $round = $state->round;
         $outcome = null;
 
-        if ($defender->isFainted()) {
-            $outcome = $defenderSide === CombatSide::Opponent
+        if ($result->defenderFainted) {
+            $outcome = $attackerSide === CombatSide::Player
                 ? BattleRewardPolicy::OUTCOME_WIN
                 : BattleRewardPolicy::OUTCOME_LOSS;
             $phase = BattlePhase::Finished;
 
-            $emit(BattleEventType::CombatantFainted, $defenderSide, $attackerSide, [
-                'name' => $defender->name,
-                'slug' => $defender->slug,
-            ]);
-            $emit(BattleEventType::BattleFinished, null, null, [
+            $events[] = new BattleEvent(++$sequence, BattleEventType::BattleFinished, null, null, [
                 'outcome' => $outcome,
                 'winner' => $attackerSide->value,
                 'round' => $state->round,
             ]);
         } elseif ($attackerSide === CombatSide::Player) {
-            $phase = BattlePhase::AwaitingPlayerDefense; // caller attaches the AI's committed attack
+            $phase = BattlePhase::AwaitingPlayerDefense;
         } else {
-            $round = $state->round + 1; // both survived: new round
+            $round = $state->round + 1;
         }
 
         $nextState = $state->with(
@@ -358,7 +215,7 @@ final class BattleEngine
             outcome: $outcome,
         );
 
-        return new BattleTransition($nextState, $events, $random->cursor());
+        return new BattleTransition($nextState, $events, $result->rngCursor);
     }
 
     private function assertPhase(BattleState $state, BattlePhase $expected): void
@@ -369,33 +226,6 @@ final class BattleEngine
                 $expected->value,
                 $state->phase->value,
             ));
-        }
-    }
-
-    private function assertCanAttack(CombatantSnapshot $attacker, ?int $moveSlot, MoveSnapshot $move): void
-    {
-        if ($moveSlot === null) {
-            if (! $move->isBasicStrike) {
-                throw new DomainException('Only basic_strike can be used without a move slot.');
-            }
-            // AI and deadlock fallback: basic_strike whenever no equipped move is currently usable.
-            // Players normally recover+skip instead when PP remains but stamina is too low.
-            if ($attacker->hasUsableMove()) {
-                throw new DomainException('basic_strike is only available when no move can be used.');
-            }
-            if (! ResourceCalculator::canAfford($attacker->staminaCurrent, $move->staminaCost)) {
-                throw new DomainException('Not enough stamina for basic_strike.');
-            }
-
-            return;
-        }
-
-        $slotMove = $attacker->move($moveSlot);
-        if ($slotMove->ppCurrent <= 0) {
-            throw new DomainException("Move {$slotMove->slug} has no PP left.");
-        }
-        if (! ResourceCalculator::canAfford($attacker->staminaCurrent, $slotMove->staminaCost)) {
-            throw new DomainException("Not enough stamina for {$slotMove->slug}.");
         }
     }
 }

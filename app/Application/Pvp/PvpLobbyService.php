@@ -283,6 +283,10 @@ final class PvpLobbyService
                         return $room->members()->pluck('user_id')->all();
                     }
 
+                    if ($room->status === PvpRoom::STATUS_IN_BATTLE) {
+                        throw PvpLobbyException::alreadyInBattle();
+                    }
+
                     $active = PvpRoomMember::query()
                         ->where('room_id', $room->id)
                         ->whereNull('left_at')
@@ -469,6 +473,7 @@ final class PvpLobbyService
             ->whereHas('room', fn ($q) => $q->whereIn('status', [
                 PvpRoom::STATUS_WAITING_FOR_GUEST,
                 PvpRoom::STATUS_READY,
+                PvpRoom::STATUS_IN_BATTLE,
             ]));
 
         if ($exceptRoomId !== null) {

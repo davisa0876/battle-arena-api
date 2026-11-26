@@ -4,7 +4,35 @@
     "required": ["message"],
     "properties": {
       "message": { "type": "string" },
-      "code": { "type": "string" }
+      "code": {
+        "type": "string",
+        "description": "Stable machine code. Combat examples: PVP_WRONG_TURN, PVP_PHASE_CONFLICT, PVP_VERSION_CONFLICT, PVP_ALREADY_FINISHED, PVP_ROOM_NOT_READY, PVP_SELECTION_LOCKED, PVP_ALREADY_IN_BATTLE, PVP_CREATURE_NOT_OWNED, PVP_SELECTION_REQUIRED, PVP_IDEMPOTENCY_CONFLICT, IDEMPOTENCY_REQUIRED.",
+        "enum": [
+          "PVP_NOT_FOUND",
+          "PVP_FORBIDDEN",
+          "PVP_NOT_ELIGIBLE",
+          "PVP_SELF_INVITE",
+          "PVP_INVITEE_UNAVAILABLE",
+          "PVP_ALREADY_IN_LOBBY",
+          "PVP_INVITE_NOT_PENDING",
+          "PVP_INVITE_EXPIRED",
+          "PVP_ROOM_CLOSED",
+          "PVP_IDEMPOTENCY_CONFLICT",
+          "PVP_GRANT_UNAVAILABLE",
+          "PVP_ALREADY_IN_BATTLE",
+          "PVP_ROOM_NOT_READY",
+          "PVP_SELECTION_LOCKED",
+          "PVP_WRONG_TURN",
+          "PVP_PHASE_CONFLICT",
+          "PVP_VERSION_CONFLICT",
+          "PVP_ALREADY_FINISHED",
+          "PVP_CREATURE_NOT_OWNED",
+          "PVP_SELECTION_REQUIRED",
+          "PVP_INVALID_ATTACK",
+          "PVP_INVALID_DEFENSE",
+          "IDEMPOTENCY_REQUIRED"
+        ]
+      }
     }
   },
   "PvpPublicPlayer": {
@@ -99,6 +127,231 @@
           "expires_in": { "type": "integer", "example": 30 },
           "room_id": { "type": "string", "format": "uuid" }
         }
+      }
+    }
+  },
+  "PvpResourceBar": {
+    "type": "object",
+    "properties": {
+      "current": { "type": "integer" },
+      "max": { "type": "integer" }
+    }
+  },
+  "PvpBattleMove": {
+    "type": "object",
+    "properties": {
+      "id": { "type": "integer", "nullable": true },
+      "slot": { "type": "integer" },
+      "slug": { "type": "string", "nullable": true },
+      "name": { "type": "string", "nullable": true },
+      "power": { "type": "integer", "nullable": true },
+      "accuracy": { "type": "integer", "nullable": true },
+      "type_slug": { "type": "string", "nullable": true },
+      "damage_class": { "type": "string", "nullable": true },
+      "pp": { "$ref": "#/components/schemas/PvpResourceBar" },
+      "stamina_cost": { "type": "integer" },
+      "can_use": { "type": "boolean" }
+    }
+  },
+  "PvpCombatant": {
+    "type": "object",
+    "nullable": true,
+    "description": "Actor-relative combatant. Moves are included only on `me`, never on `opponent`.",
+    "properties": {
+      "user_id": { "type": "integer" },
+      "name": { "type": "string" },
+      "slug": { "type": "string" },
+      "level": { "type": "integer" },
+      "types": { "type": "array", "items": { "type": "string" } },
+      "hp": { "$ref": "#/components/schemas/PvpResourceBar" },
+      "stamina": { "$ref": "#/components/schemas/PvpResourceBar" },
+      "stats": { "type": "object", "additionalProperties": true },
+      "moves": {
+        "type": "array",
+        "items": { "$ref": "#/components/schemas/PvpBattleMove" },
+        "description": "Present only for the viewing actor (`me`)."
+      }
+    }
+  },
+  "PvpPendingAttack": {
+    "type": "object",
+    "nullable": true,
+    "description": "Committed attack summary visible to the defender. No damage/HP/RNG secrets.",
+    "properties": {
+      "move_name": { "type": "string", "nullable": true },
+      "move_slug": { "type": "string", "nullable": true },
+      "is_basic_strike": { "type": "boolean" }
+    }
+  },
+  "PvpBattleOutcome": {
+    "type": "object",
+    "nullable": true,
+    "properties": {
+      "winner_user_id": { "type": "integer", "nullable": true },
+      "loser_user_id": { "type": "integer", "nullable": true },
+      "end_reason": { "type": "string", "nullable": true, "example": "combat" }
+    }
+  },
+  "PvpBattle": {
+    "type": "object",
+    "description": "Authoritative actor-relative PvP battle snapshot. `me` / `opponent` are viewer-relative.",
+    "properties": {
+      "id": { "type": "string", "format": "uuid" },
+      "room_id": { "type": "string", "format": "uuid" },
+      "mode": { "type": "string", "enum": ["pvp"] },
+      "phase": {
+        "type": "string",
+        "enum": ["awaiting_attack", "awaiting_defense", "finished"]
+      },
+      "status": { "type": "string", "enum": ["active", "finished"] },
+      "version": { "type": "integer" },
+      "turn_number": { "type": "integer" },
+      "rules_version": { "type": "string" },
+      "current_attacker_user_id": { "type": "integer" },
+      "current_defender_user_id": { "type": "integer" },
+      "pending_attack": { "$ref": "#/components/schemas/PvpPendingAttack" },
+      "me": { "$ref": "#/components/schemas/PvpCombatant" },
+      "opponent": { "$ref": "#/components/schemas/PvpCombatant" },
+      "allowed_actions": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "last_event_sequence": { "type": "integer" },
+      "outcome": { "$ref": "#/components/schemas/PvpBattleOutcome" }
+    }
+  },
+  "PvpBattleResponse": {
+    "type": "object",
+    "properties": {
+      "data": { "$ref": "#/components/schemas/PvpBattle" }
+    }
+  },
+  "PvpBattleEvent": {
+    "type": "object",
+    "properties": {
+      "sequence": { "type": "integer" },
+      "type": { "type": "string" },
+      "actor": { "type": "string", "nullable": true },
+      "target": { "type": "string", "nullable": true },
+      "payload": { "type": "object", "additionalProperties": true },
+      "occurred_at": { "type": "string", "format": "date-time", "nullable": true }
+    }
+  },
+  "PvpBattleEventsResponse": {
+    "type": "object",
+    "properties": {
+      "data": {
+        "type": "array",
+        "items": { "$ref": "#/components/schemas/PvpBattleEvent" }
+      }
+    }
+  },
+  "PvpLobbyCombatState": {
+    "type": "object",
+    "description": "Room state during creature selection / ready. Opponent selection stays hidden until both are locked.",
+    "properties": {
+      "id": { "type": "string", "format": "uuid" },
+      "status": { "type": "string" },
+      "version": { "type": "integer" },
+      "my_selection": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "owned_creature_id": { "type": "integer" },
+          "locked": { "type": "boolean" }
+        }
+      },
+      "selections_revealed": {
+        "type": "array",
+        "nullable": true,
+        "items": {
+          "type": "object",
+          "properties": {
+            "user_id": { "type": "integer" },
+            "owned_creature_id": { "type": "integer" },
+            "locked": { "type": "boolean" }
+          }
+        }
+      },
+      "battle_id": { "type": "string", "format": "uuid", "nullable": true },
+      "battle": { "$ref": "#/components/schemas/PvpBattle" },
+      "phase_note": { "type": "string" }
+    }
+  },
+  "PvpLobbyCombatResponse": {
+    "type": "object",
+    "properties": {
+      "data": { "$ref": "#/components/schemas/PvpLobbyCombatState" }
+    }
+  },
+  "PvpSelectCreatureRequest": {
+    "type": "object",
+    "required": ["owned_creature_id", "expected_room_version"],
+    "properties": {
+      "owned_creature_id": { "type": "integer", "minimum": 1 },
+      "expected_room_version": { "type": "integer", "minimum": 1 },
+      "idempotency_key": { "type": "string", "maxLength": 120 }
+    }
+  },
+  "PvpReadyRoomRequest": {
+    "type": "object",
+    "required": ["expected_room_version"],
+    "properties": {
+      "expected_room_version": { "type": "integer", "minimum": 1 },
+      "idempotency_key": { "type": "string", "maxLength": 120 }
+    }
+  },
+  "PvpAttackRequest": {
+    "type": "object",
+    "required": ["expected_version"],
+    "properties": {
+      "move_id": { "type": "integer", "minimum": 1, "nullable": true },
+      "basic_strike": { "type": "boolean", "description": "Only when no equipped move has PP left." },
+      "recover": {
+        "type": "boolean",
+        "description": "Recover stamina and skip the attack when moves still have PP but none are affordable."
+      },
+      "expected_version": { "type": "integer", "minimum": 1 },
+      "idempotency_key": { "type": "string", "maxLength": 120 }
+    },
+    "description": "Provide exactly one of move_id, basic_strike, or recover. Idempotency-Key header (or body idempotency_key) is required."
+  },
+  "PvpDefendRequest": {
+    "type": "object",
+    "required": ["defense", "expected_version"],
+    "properties": {
+      "defense": { "type": "string", "enum": ["endure", "block", "dodge", "recover"] },
+      "expected_version": { "type": "integer", "minimum": 1 },
+      "idempotency_key": { "type": "string", "maxLength": 120 }
+    },
+    "description": "Idempotency-Key header (or body idempotency_key) is required."
+  },
+  "PvpRewardRow": {
+    "type": "object",
+    "properties": {
+      "user_id": { "type": "integer" },
+      "outcome": { "type": "string", "enum": ["win", "loss"] },
+      "xp_awarded": { "type": "integer" }
+    }
+  },
+  "PvpActionResponse": {
+    "type": "object",
+    "properties": {
+      "data": {
+        "oneOf": [
+          { "$ref": "#/components/schemas/PvpBattle" },
+          {
+            "type": "object",
+            "properties": {
+              "battle": { "$ref": "#/components/schemas/PvpBattle" },
+              "rewards": {
+                "type": "array",
+                "nullable": true,
+                "items": { "$ref": "#/components/schemas/PvpRewardRow" }
+              }
+            }
+          }
+        ]
       }
     }
   }

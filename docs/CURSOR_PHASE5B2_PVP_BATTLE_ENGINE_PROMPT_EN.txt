@@ -1,0 +1,142 @@
+PROJECT: BATTLE ARENA
+PHASE: 5B.2 — AUTHORITATIVE TWO-HUMAN PVP BATTLE ENGINE
+ROLE: Principal Laravel / PHP Engineer, Multiplayer Systems Architect, TypeScript/WebSocket Engineer, Security Engineer and Test Engineer
+
+WORKSPACE (FIVE SIBLING PROJECTS)
+C:\FREELANCE\games\battle-arena-api
+C:\FREELANCE\games\battle-arena-realtime
+C:\FREELANCE\games\battle-arena-web
+C:\FREELANCE\games\battle-arena-mobile
+C:\FREELANCE\games\battle-arena-infra
+
+NOTE: The local folder is battle-arena-realtime; its GitHub repository is named battle-arena-realtime-websocket. Do not rename the local folder or break Compose paths.
+
+MANDATORY — READ THE SPECIFICATIONS COMPLETELY BEFORE MODIFYING CODE
+1) C:\FREELANCE\games\battle-arena-api\docs\PHASE5B2_PVP_BATTLE_ENGINE_SPEC_EN.md
+2) C:\FREELANCE\games\battle-arena-api\docs\PHASE5B_PVP_PRIVATE_ROOMS_SPEC_EN.md
+3) C:\FREELANCE\games\battle-arena-api\docs\PHASE5A_REALTIME_NODE_WEBSOCKET_SPEC_EN.md (or the latest revision in docs)
+4) C:\FREELANCE\games\battle-arena-api\docs\BATTLE_ENGINE_PVE_SPEC_EN.md
+
+Also inspect the current local source code and .cursor/rules directories of ALL FIVE repositories, relevant recent commits, working trees and uncommitted edits. Preserve all existing work. If a referenced doc is missing, search the existing docs directory for its current equivalent; do not guess its contents. The new Phase 5B.2 spec is the primary implementation contract.
+
+BASELINE — ALREADY COMPLETED IN 5A AND 5B.1
+- Laravel Sanctum, owned creatures, progress and the playable 1v1 PvE engine.
+- Private PvP room invitation workflow by exact trainer handle, level >=6, room member authorization, persisted rooms/members/invitations.
+- POST /api/realtime/tickets and Node.js ws WebSocket gateway with one-time tickets, Redis and heartbeat.
+- One-time room subscription grants, room.subscribe and authorized fanout.
+- React/Expo private lobby and notifications with REST rehydration.
+- Existing PvP rules in config/game.php: win=20 XP, loss=10 XP, min trainer level=6.
+- features.pvp currently false; do not enable it for production during this phase.
+
+PRIMARY GOAL
+Build a production-minded, server-authoritative, deterministic and fully tested two-human PvP battle backend, starting from an accepted PRIVATE ROOM with two distinct trainers. The two players must be able to select owned creatures, lock readiness, enter exactly one battle, alternate attacks and defenses, and finish on KO with exactly-once PvP XP. All game commands remain Laravel REST. Node only relays versioned change notifications to authorized subscribers.
+
+CRITICAL ARCHITECTURE RULES — NEVER VIOLATE
+1. Laravel is the ONLY authority for authentication, room membership, eligibility, moves, defense, turn order, damage, HP, PP, stamina, RNG, winner/loser, XP and state persistence.
+2. PostgreSQL is the durable source of truth. Redis stores ephemeral auth and notification transport only.
+3. Node.js must NOT query Postgres directly, calculate combat, receive battle actions over WebSockets, or decide who wins.
+4. Reuse existing pure PHP combat value objects and calculations. The existing BattleState/BattlePhase/BattleEngine are currently PvE-specific. Do not force a human PvP turn loop into AI-only transitions; design a PvP-specific state machine and extract neutral pure combat calculation if necessary.
+5. Preserve PvE behavior, tests and APIs; do not introduce a duplicated second damage formula.
+6. Use Laravel Sanctum for ALL protected PvP REST endpoints, with per-resource authorization and cross-user isolation.
+7. Two players MUST be different users, with independently verified owned creatures; never trust a client-supplied player_id, defender_id, winner, HP, XP or battle snapshot.
+8. Idempotency and optimistic version checks must be enforced in database transactions and backed by appropriate unique constraints; no double-spend of PP/stamina or double-award of XP.
+9. Apply reliable SQL locking order to prevent deadlocks. Real PostgreSQL concurrency tests are required.
+10. WebSockets are best-effort hints ONLY. REST GET state and events support reconnect, rehydrate and recovery. Publish only after committed DB transactions.
+11. Do not implement matchmaking, ranking, seasons, spectator mode, public lobbies or full combat UI.
+12. Do not auto-forfeit or auto-award XP because of socket disconnect in Phase 5B.2; define disconnect policies only in Phase 5B.4.
+13. Do not enable features.pvp = true yet.
+14. No destructive migrations, no compose down -v, no volume deletion, no APP_KEY rotation, no automatic commits/pushes, no new remote repository.
+
+IMPLEMENT PHASE 5B.2 END-TO-END, FOLLOWING THE SPEC MILESTONES P0 THROUGH P5
+
+P0 — AUDIT AND IMPLEMENTATION MAP
+- Check relevant source files including:
+  app/Domain/Battle/BattleEngine.php
+  app/Domain/Battle/BattleState.php
+  app/Domain/Battle/BattlePhase.php
+  app/Domain/Battle/CombatantSnapshot.php
+  app/Domain/Battle/MoveSnapshot.php
+  app/Domain/Battle/DamageCalculator.php
+  app/Application/Battles/CombatantFactory.php
+  app/Application/Battles/BattleRewardService.php
+  app/Application/Pvp/PvpLobbyService.php
+  app/Application/Pvp/PvpRealtimePublisher.php
+  app/Domain/Pvp/Models/PvpRoom.php
+  app/Domain/Pvp/Models/PvpRoomMember.php
+  config/game.php, config/pvp.php, routes/api.php
+  src/protocol/schemas.ts, src/websocket/connections.ts, src/redis/notifications.ts (Node)
+- Verify 5B.1 routes and room statuses; inspect local tests and .cursor/rules.
+- Map where to extend/refactor, preserving current services instead of replacing them.
+- Do not stop after producing an implementation plan.
+
+P1 — NEUTRAL COMBAT CALCULATION + PVP TURN STATE
+- Refactor/extract the smallest pure reusable combat exchange logic for either side, without PvE regressions.
+- Implement PvP-specific awaiting_attack / awaiting_defense / finished transitions.
+- Implement immutable attack commitments; defender sees declared move, and action resolves only after defender reacts.
+- Use seeded RNG and versioned rules snapshots; persist cursor and repeatable events.
+- Resolve combatant HP/stamina/PP from current snapshot, spending resources exactly once at defense resolution.
+- Alternate attacker and defender after each resolved exchange; eligible recover-skip also switches actor.
+- Respect attack costs, type effectiveness, accuracy, dodge, block, endure, recover, PP exhaustion, basic strike, KO and event sequencing.
+- Add pure domain and parity tests.
+
+P2 — ADDITIVE POSTGRES SCHEMA
+- Add creature selection/readiness models, durable PvP battle model, two combatants/moves, action replay, ordered event log and reward/idempotency records as appropriate.
+- Use appropriate FKs, unique constraints, transaction boundaries and indexes.
+- Extend ready room lifecycle to in_battle and combat-completed closure, while preventing 5B.1 leave/cancel from silently abandoning an active battle.
+- Preserve existing room/invitation records, tests and ownership semantics.
+
+P3 — REST BATTLE FLOW
+Implement the real application workflow with the actual established response/error conventions. Suggested routes:
+  PUT  /api/pvp/rooms/{room}/selection
+  POST /api/pvp/rooms/{room}/ready
+  GET  /api/pvp/battles/{battle}
+  GET  /api/pvp/battles/{battle}/events
+  POST /api/pvp/battles/{battle}/attack
+  POST /api/pvp/battles/{battle}/defend
+- POST /ready: exactly one match starts when both are locked, even under concurrent calls/retries.
+- Only the current attacker can commit move; only current defender can react.
+- Enforce expected_version + Idempotency-Key for mutating operations.
+- API returns actor-relative, privacy-safe state (me/opponent), allowed_actions, current phase, own moves and pending declared move only when appropriate; hide opponent private loadout and RNG.
+- Add FormRequests, controllers, services, presenters/resources and OpenAPI/Swagger fragments in existing conventions.
+- Respect existing API error-envelope and five-language translation conventions.
+
+P4 — VERIFIED COMBAT RESULTS AND XP
+- Calculate winner and loser only from committed server-side KO.
+- Record both user IDs and match outcome persistently.
+- Grant exactly 20 XP for winner and 10 XP for loser through existing BattleRewardPolicy / Progression service, using durable per-user+match idempotency.
+- Ensure atomicity/recoverability so one participant cannot receive a reward twice or the other be silently omitted.
+- Do NOT grant XP from client-supplied verified=true, abandoned room, invite cancellation, timeout or disconnect.
+- Ensure repeated finishing calls and replayed actions never duplicate XP or records.
+- Keep features.pvp disabled until Phase 5B.4.
+
+P5 — NODE NOTIFICATIONS + SECURITY + TESTS + DOCUMENTATION
+- Reuse existing Redis Pub/Sub and room subscription grants, not a new stack.
+- Add/validate a pvp.battle.changed notification frame with room_id, battle_id, version and last_event_sequence ONLY; no game commands and no hidden moves/damage in the socket.
+- Fan out to authorized room members only; third-party sockets must not receive it.
+- Ensure final results remain retrievable by both historical participants after room closure even if room subscriptions are revoked.
+- Implement tests for fanout/room ACL, replay, idempotency, out-of-turn actions, stale versions, concurrent ready/start/defense, rewards and PvE compatibility.
+- Use actual repo scripts for lint, typecheck, PHPUnit, Vitest and CI; for frontend/Node tests prefer compatible Node versions or Compose where needed.
+- Provide a reproducible two-account REST + WebSocket smoke path without checking in secrets.
+- Update Swagger/OpenAPI, README and .cursor/rules in each materially changed repository. In API, create a specific PvP combat rule such as .cursor/rules/80-pvp-combat-engine.mdc. In Node, extend its room/fanout rule or add a specific notification rule only if genuinely needed. Do not recreate existing rule files unnecessarily.
+
+ACCEPTANCE GATES
+A. Two independent authenticated level-6+ users can join an accepted private room and each select an OWNED creature.
+B. Both ready => exactly one battle, persisted and discoverable on refresh.
+C. Human A attack -> Human B defense -> Human B attack -> Human A defense, with a deterministic swap and correct damage/HP/PP/stamina.
+D. Valid recover-skip switches actor immediately; basic strike only at zero move PP.
+E. Stale, forged, duplicated or out-of-turn requests cannot mutate battle, bypass ACL or duplicate rewards.
+F. Server-side KO persists winner/loser; +20 / +10 XP once, correct for both host-wins and guest-wins cases.
+G. WebSocket notification is hint-only, targeted and versioned; Redis/Node failure does not corrupt REST combat.
+H. PvE and 5B.1 regressions remain green. PostgreSQL concurrency tests run or their precise environment limitations are disclosed.
+I. Public features.pvp is still false; no matchmaking/UI creep into 5B.3/5B.4.
+
+FINAL REPORT REQUIRED
+1) Files changed by repo, with each major design decision and why.
+2) Exact state machine, schema, REST endpoints and notification contracts actually implemented.
+3) Which existing pure combat modules were reused/refactored; confirmation of PvE compatibility.
+4) Exact test commands, counts, outcomes, build/CI status and any failures or unrun tests.
+5) Docker/Redis smoke results and reproducible two-player manual test instructions.
+6) Any spec deviations, security concerns, architectural compromises and TODOs.
+7) Clear handoff to Phase 5B.3 (Web/Expo Arena) and Phase 5B.4 (disconnect/forfeit/timeout release gate).
+
+IMPLEMENT NOW. DO NOT ONLY WRITE A PLAN. DO NOT AUTO-COMMIT OR PUSH.
