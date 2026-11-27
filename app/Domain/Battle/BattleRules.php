@@ -24,6 +24,7 @@ use InvalidArgumentException;
  *       'block'   => ['stamina_cost' => 10, 'damage_multiplier' => 0.5],
  *       'dodge'   => ['stamina_cost' => 20, 'dodge_chance' => 0.6],
  *       'recover' => ['stamina_cost' => 0,  'stamina_recover' => 15],
+ *       'heal'    => ['stamina_cost' => 25, 'hp_recover' => 20],
  *   ],
  *   'basic_strike' => ['slug' => 'basic_strike', 'name' => 'Basic Strike', 'power' => 20,
  *                      'accuracy' => 100, 'type_slug' => 'normal', 'damage_class' => 'physical',
@@ -49,6 +50,7 @@ final readonly class BattleRules
         public array $defenseDamageMultipliers,
         public float $dodgeChance,
         public int $recoverStamina,
+        public int $recoverHp,
         public array $basicStrike,
     ) {
         if ($stab < 1.0) {
@@ -65,6 +67,9 @@ final readonly class BattleRules
         }
         if ($recoverStamina < 0) {
             throw new InvalidArgumentException('stamina_recover must not be negative.');
+        }
+        if ($recoverHp < 0) {
+            throw new InvalidArgumentException('hp_recover must not be negative.');
         }
         foreach (DefenseType::cases() as $defense) {
             if (! isset($defenseStaminaCosts[$defense->value]) || $defenseStaminaCosts[$defense->value] < 0) {
@@ -101,6 +106,7 @@ final readonly class BattleRules
                 'block' => ['stamina_cost' => 10, 'damage_multiplier' => 0.5],
                 'dodge' => ['stamina_cost' => 20, 'dodge_chance' => 0.6],
                 'recover' => ['stamina_cost' => 0, 'stamina_recover' => 15],
+                'heal' => ['stamina_cost' => 25, 'hp_recover' => 20, 'damage_multiplier' => 1.0],
             ],
             'basic_strike' => [
                 'slug' => 'basic_strike',
@@ -157,6 +163,7 @@ final readonly class BattleRules
             defenseDamageMultipliers: $multipliers,
             dodgeChance: (float) ($defense['dodge']['dodge_chance'] ?? 0.6),
             recoverStamina: (int) ($defense['recover']['stamina_recover'] ?? 15),
+            recoverHp: (int) ($defense['heal']['hp_recover'] ?? 20),
             basicStrike: [
                 'slug' => (string) $basic['slug'],
                 'name' => (string) $basic['name'],
@@ -220,6 +227,7 @@ final readonly class BattleRules
         }
         $defense['dodge']['dodge_chance'] = $this->dodgeChance;
         $defense['recover']['stamina_recover'] = $this->recoverStamina;
+        $defense['heal']['hp_recover'] = $this->recoverHp;
 
         return [
             'rules_version' => $this->rulesVersion,

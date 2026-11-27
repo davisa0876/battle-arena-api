@@ -16,7 +16,8 @@ class ImportCombatMovesCommand extends Command
 {
     protected $signature = 'combat:import-moves
                             {--fixture : Seed from local MVP fixtures (no network)}
-                            {--limit= : Cap how many catalog creatures to process (live import only)}';
+                            {--limit= : Cap how many catalog creatures to process (live import only)}
+                            {--slug=* : Only these creature slugs (live import only)}';
 
     protected $description = 'Import combat moves and learnsets from PokéAPI (or --fixture for offline seed)';
 
@@ -46,13 +47,21 @@ class ImportCombatMovesCommand extends Command
 
         $limitRaw = $this->option('limit');
         $limit = $limitRaw !== null && $limitRaw !== '' ? max(1, (int) $limitRaw) : null;
+        /** @var list<string> $slugs */
+        $slugs = array_values(array_filter(array_map(
+            static fn ($s): string => mb_strtolower(trim((string) $s)),
+            (array) $this->option('slug'),
+        )));
 
         $this->info('Importing combat moves/learnsets from PokéAPI…');
         if ($limit !== null) {
             $this->comment("Creature limit: {$limit}");
         }
+        if ($slugs !== []) {
+            $this->comment('Slugs: '.implode(', ', $slugs));
+        }
 
-        $result = $importer->importFromPokeApi($limit);
+        $result = $importer->importFromPokeApi($limit, $slugs !== [] ? $slugs : null);
 
         $this->info(sprintf(
             'PokéAPI: %d creatures, %d moves upserted, %d learnable links, %d type-chart rows (%d skipped).',

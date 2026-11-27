@@ -188,6 +188,23 @@ final class CombatExchangeCalculator
                     'before' => $hpBefore,
                     'after' => $hpAfter,
                     'max' => $defender->hpMax,
+                    'reason' => 'damage',
+                ]);
+            }
+        }
+
+        // Heal patches HP after the hit lands; fainted combatants cannot self-revive.
+        if ($defenseType === DefenseType::Heal && ! $defender->isFainted() && $rules->recoverHp > 0) {
+            $healBefore = $defender->hpCurrent;
+            $healAfter = ResourceCalculator::applyRecover($healBefore, $rules->recoverHp, $defender->hpMax);
+            if ($healAfter !== $healBefore) {
+                $defender = $defender->withHp($healAfter);
+                $emit(BattleEventType::HpChanged, $defenderSide, $defenderSide, [
+                    'before' => $healBefore,
+                    'after' => $healAfter,
+                    'max' => $defender->hpMax,
+                    'reason' => 'heal',
+                    'amount' => $healAfter - $healBefore,
                 ]);
             }
         }

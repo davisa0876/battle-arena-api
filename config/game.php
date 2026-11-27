@@ -134,6 +134,8 @@ return [
             'block' => ['stamina_cost' => 10, 'damage_multiplier' => 0.5],
             'dodge' => ['stamina_cost' => 20, 'success_chance' => 0.6, 'damage_multiplier' => 1.0],
             'recover' => ['stamina_cost' => 0, 'stamina_restore' => 15, 'damage_multiplier' => 1.0],
+            // Spend stamina to patch HP after taking the hit (no damage reduction).
+            'heal' => ['stamina_cost' => 25, 'hp_restore' => 20, 'damage_multiplier' => 1.0],
         ],
         'basic_strike' => [
             'slug' => 'basic_strike',

@@ -28,7 +28,7 @@ class PveRulesProvider
     }
 
     /**
-     * Optional soft cap on combat loadout size. null/0 = uncapped (all supported learnables).
+     * Optional soft cap on battle loadout size. null/0 = full eligible learnset.
      */
     public function maxMoves(): ?int
     {
@@ -112,6 +112,9 @@ class PveRulesProvider
                 ],
                 'recover' => $this->defenseEntry($defense, 'recover') + [
                     'stamina_recover' => $defense['recover']['stamina_restore'] ?? null,
+                ],
+                'heal' => $this->defenseEntry($defense, 'heal') + [
+                    'hp_recover' => $defense['heal']['hp_restore'] ?? null,
                 ],
             ],
         ];

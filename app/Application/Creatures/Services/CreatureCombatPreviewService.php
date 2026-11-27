@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace App\Application\Creatures\Services;
 
 use App\Application\Battles\CombatantFactory;
-use App\Domain\Battle\CombatSide;
 use App\Domain\Creatures\Models\Creature;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 
 /**
- * Catalog combat preview: typed attack loadout for this creature + shared defense options.
- * Defenses are global (same for every creature); attacks come from the MVP learnable set.
+ * Catalog combat preview: full eligible attack learnset + shared defense options.
+ * Defenses are global; attacks come from the creature learnset (not the 4-slot battle loadout).
  */
 final class CreatureCombatPreviewService
 {
@@ -27,13 +26,13 @@ final class CreatureCombatPreviewService
      *   note: string
      * }
      */
-    public function forCreature(Creature $creature, int $previewLevel = 1): array
+    public function forCreature(Creature $creature): array
     {
         $creature->loadMissing('types');
-        $snapshot = $this->combatants->fromCreature($creature, max(1, $previewLevel), CombatSide::Player);
+        $moves = $this->combatants->previewLoadoutFor($creature);
 
         $attacks = [];
-        foreach ($snapshot->moves as $move) {
+        foreach ($moves as $move) {
             $attacks[] = [
                 'id' => $move->id,
                 'slug' => $move->slug,
@@ -50,7 +49,7 @@ final class CreatureCombatPreviewService
         return [
             'attacks' => $attacks,
             'defenses' => $this->defenses(),
-            'note' => 'Attacks are this creature’s arena loadout. Defenses are shared by every combatant.',
+            'note' => 'Attacks list this creature’s eligible learnset. Defenses are shared by every combatant.',
         ];
     }
 
@@ -65,10 +64,11 @@ final class CreatureCombatPreviewService
             'block' => 'Block',
             'dodge' => 'Dodge',
             'recover' => 'Recover',
+            'heal' => 'Heal',
         ];
 
         $out = [];
-        foreach (['endure', 'block', 'dodge', 'recover'] as $slug) {
+        foreach (['endure', 'block', 'dodge', 'recover', 'heal'] as $slug) {
             $entry = (array) ($defense[$slug] ?? []);
             $row = [
                 'slug' => $slug,
@@ -81,6 +81,9 @@ final class CreatureCombatPreviewService
             }
             if ($slug === 'recover' && isset($entry['stamina_restore'])) {
                 $row['stamina_restore'] = (int) $entry['stamina_restore'];
+            }
+            if ($slug === 'heal' && isset($entry['hp_restore'])) {
+                $row['hp_restore'] = (int) $entry['hp_restore'];
             }
             $out[] = $row;
         }

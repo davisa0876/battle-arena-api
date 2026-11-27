@@ -112,4 +112,24 @@ class PokeApiCombatMapperTest extends TestCase
         $this->assertArrayHasKey('growl', $bySlug->all());
         $this->assertArrayNotHasKey('ember', $bySlug->all());
     }
+
+    #[Test]
+    public function test_learnset_falls_back_when_pinned_version_group_is_empty(): void
+    {
+        $refs = $this->mapper->learnsetForVersionGroup([
+            'moves' => [
+                [
+                    'move' => ['name' => 'crunch', 'url' => 'https://pokeapi.co/api/v2/move/242/'],
+                    'version_group_details' => [[
+                        'level_learned_at' => 1,
+                        'move_learn_method' => ['name' => 'level-up'],
+                        'version_group' => ['name' => 'sword-shield'],
+                    ]],
+                ],
+            ],
+        ], 'scarlet-violet');
+
+        $this->assertCount(1, $refs);
+        $this->assertSame('crunch', $refs[0]->moveSlug);
+    }
 }

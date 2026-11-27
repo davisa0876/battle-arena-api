@@ -340,7 +340,7 @@
     "type": "object",
     "required": ["defense", "expected_version"],
     "properties": {
-      "defense": { "type": "string", "enum": ["endure", "block", "dodge", "recover"] },
+      "defense": { "type": "string", "enum": ["endure", "block", "dodge", "recover", "heal"] },
       "expected_version": { "type": "integer", "minimum": 1 },
       "idempotency_key": { "type": "string", "maxLength": 120 }
     },

@@ -12,6 +12,24 @@ final class PokeApiCombatMapper
     private const PROVIDER = 'pokeapi';
 
     /**
+     * Prefer the pinned version group; if the species is absent there (e.g. Absol in SV),
+     * fall back through recent groups so catalog creatures still get a learnset.
+     *
+     * @var list<string>
+     */
+    private const VERSION_GROUP_FALLBACKS = [
+        'sword-shield',
+        'ultra-sun-ultra-moon',
+        'omega-ruby-alpha-sapphire',
+        'x-y',
+        'black-2-white-2',
+        'black-white',
+        'heartgold-soulsilver',
+        'platinum',
+        'diamond-pearl',
+    ];
+
+    /**
      * @param  array<string, mixed>  $payload
      */
     public function mapMove(array $payload): ExternalMoveData
@@ -40,6 +58,30 @@ final class PokeApiCombatMapper
      * @return list<ExternalLearnableMoveRef>
      */
     public function learnsetForVersionGroup(array $pokemonPayload, string $versionGroup): array
+    {
+        $preferred = $this->extractForVersionGroup($pokemonPayload, $versionGroup);
+        if ($preferred !== []) {
+            return $preferred;
+        }
+
+        foreach (self::VERSION_GROUP_FALLBACKS as $fallback) {
+            if ($fallback === $versionGroup) {
+                continue;
+            }
+            $refs = $this->extractForVersionGroup($pokemonPayload, $fallback);
+            if ($refs !== []) {
+                return $refs;
+            }
+        }
+
+        return $this->extractBestAcrossAllVersionGroups($pokemonPayload);
+    }
+
+    /**
+     * @param  array<string, mixed>  $pokemonPayload
+     * @return list<ExternalLearnableMoveRef>
+     */
+    private function extractForVersionGroup(array $pokemonPayload, string $versionGroup): array
     {
         $byMoveId = [];
 
@@ -71,6 +113,59 @@ final class PokeApiCombatMapper
                     'level' => $level,
                 ];
 
+                if ($best === null || $this->isBetterLearnDetail($candidate, $best)) {
+                    $best = $candidate;
+                }
+            }
+
+            if ($best === null) {
+                continue;
+            }
+
+            $byMoveId[$moveExternalId] = new ExternalLearnableMoveRef(
+                moveExternalId: $moveExternalId,
+                moveSlug: $moveSlug,
+                learnLevel: $best['level'],
+                learnMethod: $best['method'],
+            );
+        }
+
+        return array_values($byMoveId);
+    }
+
+    /**
+     * Last resort: one best detail per move across every version group present.
+     *
+     * @param  array<string, mixed>  $pokemonPayload
+     * @return list<ExternalLearnableMoveRef>
+     */
+    private function extractBestAcrossAllVersionGroups(array $pokemonPayload): array
+    {
+        $byMoveId = [];
+
+        foreach ($pokemonPayload['moves'] ?? [] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $moveUrl = (string) data_get($row, 'move.url', '');
+            $moveSlug = (string) data_get($row, 'move.name', '');
+            if ($moveSlug === '' || preg_match('#/move/(\d+)/?#', $moveUrl, $matches) !== 1) {
+                continue;
+            }
+            $moveExternalId = (int) $matches[1];
+
+            $best = null;
+            foreach ($row['version_group_details'] ?? [] as $detail) {
+                if (! is_array($detail)) {
+                    continue;
+                }
+                $method = (string) data_get($detail, 'move_learn_method.name', '');
+                $level = isset($detail['level_learned_at']) ? (int) $detail['level_learned_at'] : null;
+                $candidate = [
+                    'method' => $method !== '' ? $method : null,
+                    'level' => $level,
+                ];
                 if ($best === null || $this->isBetterLearnDetail($candidate, $best)) {
                     $best = $candidate;
                 }

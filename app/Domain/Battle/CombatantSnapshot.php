@@ -45,8 +45,8 @@ final readonly class CombatantSnapshot
                 throw new InvalidArgumentException("Stat {$key} is required and must be positive.");
             }
         }
-        if (count($moves) > 4 || ! array_is_list($moves)) {
-            throw new InvalidArgumentException('A combatant has at most four moves, indexed as a list.');
+        if (! array_is_list($moves)) {
+            throw new InvalidArgumentException('Moves must be indexed as a list.');
         }
     }
 

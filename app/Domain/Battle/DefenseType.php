@@ -10,4 +10,5 @@ enum DefenseType: string
     case Block = 'block';
     case Dodge = 'dodge';
     case Recover = 'recover';
+    case Heal = 'heal';
 }

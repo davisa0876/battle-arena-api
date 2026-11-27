@@ -239,6 +239,22 @@ final class BattleEngineTest extends TestCase
         $this->assertSame(55, $t->nextState->opponent->staminaCurrent);
     }
 
+    public function test_heal_spends_stamina_and_restores_hp_after_damage(): void
+    {
+        $opponent = BattleFixtures::combatant(CombatSide::Opponent, ['normal'], 50, 100, 80);
+
+        $t = $this->attack(BattleFixtures::state(null, $opponent), DefenseType::Heal);
+
+        // Default heal: -25 stamina, take damage, then +20 HP (if alive).
+        $this->assertSame(55, $t->nextState->opponent->staminaCurrent);
+        $this->assertSame(92, $t->nextState->opponent->hpCurrent); // 100 - 28 damage + 20 heal (fixture damage)
+        $heal = collect($t->events)->first(
+            static fn ($e): bool => $e->type->value === 'hp_changed' && ($e->payload['reason'] ?? null) === 'heal',
+        );
+        $this->assertNotNull($heal);
+        $this->assertSame(20, $heal->payload['amount']);
+    }
+
     public function test_knockout_finishes_battle_with_win_and_no_pending_attack(): void
     {
         $opponent = BattleFixtures::combatant(CombatSide::Opponent, ['normal'], 50, 5);

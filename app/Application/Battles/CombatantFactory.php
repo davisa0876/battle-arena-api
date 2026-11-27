@@ -16,6 +16,7 @@ use App\Domain\OwnedCreatures\Models\OwnedCreature;
 
 /**
  * Builds combatant snapshots (and move loadouts) from catalog + ownership data.
+ * Battle loadouts use the full eligible learnset unless `game.pve.max_moves` soft-caps.
  */
 final class CombatantFactory
 {
@@ -48,7 +49,7 @@ final class CombatantFactory
             'speed' => EffectiveStatCalculator::stat((int) $creature->base_speed, $level),
         ];
 
-        $moves = $this->loadoutFor($creature, $formula);
+        $moves = $this->loadoutFor($creature, $formula, $this->rules->maxMoves());
 
         return new CombatantSnapshot(
             side: $side,
@@ -66,18 +67,31 @@ final class CombatantFactory
     }
 
     /**
+     * Full eligible attack list for catalog UI (not capped by the battle 4-slot limit).
+     *
+     * @return list<MoveSnapshot>
+     */
+    public function previewLoadoutFor(Creature $creature): array
+    {
+        $formula = $this->rules->rules()->staminaCostFormula;
+
+        return $this->loadoutFor($creature, $formula, null);
+    }
+
+    /**
      * @param  array{base: int, per_step: int, power_step: int, min: int, max: int}  $formula
      * @return list<MoveSnapshot>
      */
-    private function loadoutFor(Creature $creature, array $formula): array
+    private function loadoutFor(Creature $creature, array $formula, ?int $limit): array
     {
         $versionGroup = $this->rules->versionGroup();
-        $limit = $this->rules->maxMoves();
 
         $learnable = CreatureLearnableMove::query()
             ->where('creature_id', $creature->id)
             ->where('version_group', $versionGroup)
             ->with('move')
+            ->orderByRaw("case when learn_method = 'level-up' then 0 else 1 end")
+            ->orderByRaw('case when learn_level is null or learn_level = 0 then 9999 else learn_level end')
             ->orderBy('id')
             ->get();
 

@@ -17,7 +17,7 @@ final class DefendBattleRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'defense' => ['required', 'string', 'in:endure,block,dodge,recover'],
+            'defense' => ['required', 'string', 'in:endure,block,dodge,recover,heal'],
             'expected_version' => ['required', 'integer', 'min:1'],
             'idempotency_key' => ['sometimes', 'nullable', 'string', 'max:120'],
         ];

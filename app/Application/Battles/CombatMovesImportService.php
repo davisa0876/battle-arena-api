@@ -41,7 +41,10 @@ final class CombatMovesImportService
      *   errors: list<string>
      * }
      */
-    public function importFromPokeApi(?int $creatureLimit = null): array
+    /**
+     * @param  list<string>|null  $slugs
+     */
+    public function importFromPokeApi(?int $creatureLimit = null, ?array $slugs = null): array
     {
         $typeRows = $this->fixtureSeeder->seedTypeChartOnly();
         $versionGroup = $this->rules->versionGroup();
@@ -54,11 +57,16 @@ final class CombatMovesImportService
         /** @var array<int, Move> $moveCache keyed by PokéAPI move id */
         $moveCache = [];
 
-        Creature::query()
+        $query = Creature::query()
             ->where('provider', 'pokeapi')
             ->whereNotNull('external_id')
-            ->orderBy('id')
-            ->chunkById(50, function ($chunk) use (
+            ->orderBy('id');
+
+        if ($slugs !== null && $slugs !== []) {
+            $query->whereIn('slug', $slugs);
+        }
+
+        $query->chunkById(50, function ($chunk) use (
                 $versionGroup,
                 $creatureLimit,
                 &$errors,
@@ -155,6 +163,11 @@ final class CombatMovesImportService
                 $movesUpserted++;
             }
             $eligible[] = ['move' => $move, 'ref' => $ref];
+        }
+
+        // Never wipe an existing learnset when the provider returns nothing usable.
+        if ($eligible === []) {
+            return ['moves_upserted' => $movesUpserted, 'learnable_links' => 0];
         }
 
         $links = $this->db->transaction(function () use ($creature, $versionGroup, $eligible): int {

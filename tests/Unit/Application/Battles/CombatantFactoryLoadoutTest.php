@@ -78,14 +78,14 @@ class CombatantFactoryLoadoutTest extends TestCase
 
         $this->assertNotEmpty($snap->moves);
         $slugs = array_map(static fn ($m) => $m->slug, $snap->moves);
-        // Uncapped: all typed MVP matches should appear (rock + flying), not a 4-move slice with normals.
+        // Typed MVP matches only (rock + flying), never padded with normals.
         $this->assertContains('rock-throw', $slugs);
         $this->assertContains('gust', $slugs);
         $this->assertContains('peck', $slugs);
         $this->assertNotContains('tackle', $slugs);
     }
 
-    public function test_learnset_is_not_soft_capped_at_four_when_max_moves_is_null(): void
+    public function test_battle_loadout_uses_full_learnset_when_max_moves_is_null(): void
     {
         config(['game.pve.max_moves' => null]);
         app(SeedCombatDataService::class)->seed();
@@ -103,15 +103,31 @@ class CombatantFactoryLoadoutTest extends TestCase
         $creature->types()->sync([$normal->id => ['slot' => 1]]);
         CreatureLearnableMove::query()->where('creature_id', $creature->id)->delete();
 
-        // Attach more than four normal MVP moves explicitly.
         $moves = \App\Domain\Battle\Models\Move::query()
             ->where('is_mvp_supported', true)
             ->where('type_slug', 'normal')
             ->where('power', '>', 0)
             ->orderBy('id')
-            ->take(5)
             ->get();
-        $this->assertGreaterThanOrEqual(4, $moves->count());
+        $this->assertNotEmpty($moves);
+
+        $extra = \App\Domain\Battle\Models\Move::query()->create([
+            'provider' => 'pokeapi',
+            'external_id' => 900001,
+            'slug' => 'extra-normal-strike',
+            'name' => 'Extra Normal Strike',
+            'power' => 45,
+            'accuracy' => 100,
+            'pp' => 20,
+            'damage_class' => 'physical',
+            'type_slug' => 'normal',
+            'priority' => 0,
+            'version_group' => (string) config('game.pve.version_group'),
+            'is_mvp_supported' => true,
+        ]);
+        $moves = $moves->push($extra)->unique('id')->values();
+        $this->assertGreaterThan(4, $moves->count());
+
         foreach ($moves as $move) {
             CreatureLearnableMove::query()->updateOrCreate(
                 [
@@ -123,12 +139,11 @@ class CombatantFactoryLoadoutTest extends TestCase
             );
         }
 
-        $snap = app(CombatantFactory::class)->fromCreature(
-            $creature->fresh(['types']),
-            1,
-            CombatSide::Player,
-        );
+        $fresh = $creature->fresh(['types']);
+        $snap = app(CombatantFactory::class)->fromCreature($fresh, 1, CombatSide::Player);
+        $preview = app(CombatantFactory::class)->previewLoadoutFor($fresh);
 
         $this->assertCount($moves->count(), $snap->moves);
+        $this->assertCount($moves->count(), $preview);
     }
 }
