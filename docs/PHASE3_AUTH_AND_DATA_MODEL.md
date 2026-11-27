@@ -33,11 +33,11 @@ Registration creates User + Profile + Progress in one transaction.
 
 ## Avatar storage
 
-- Disk resolution: `PROFILES_DISK` env (`profiles` S3 when storage profile up, else `profiles_local`).
-- Local fallback: `storage/app/profiles` with Docker volume `api_profiles`.
+- Disk resolution: `PROFILES_DISK` env. The Compose environment and the AWS target use `profiles` (private S3 bucket; RustFS locally).
+- `profiles_local` (`storage/app/profiles`) remains the application default outside Compose; it cannot be used on Lambda.
 - Validate JPG/PNG/WebP; max size/dimensions; reject SVG; re-encode with GD; strip metadata; random object names.
 - Delivery: `GET /api/avatars/{userId}` (public for public profiles / owner) streams from private disk — works for web, emulators, LAN devices. No S3 credentials to clients.
-- Login/profile do not require RustFS.
+- Login/profile do not depend on object storage.
 
 ## Trainer progression
 

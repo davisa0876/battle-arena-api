@@ -3,6 +3,8 @@
 **Version:** 1.1 | **Date:** 2026-11-26 | **Status:** Proposed, pending repository and account validation  
 **Scope:** Documentation of the Battle Arena cloud strategy only. This revision does not authorize provisioning, deployment, or application changes.
 
+> **Not the canonical copy.** The maintained version is `battle-arena-infra/BATTLE_ARENA_AWS_INFRASTRUCTURE_SPEC_EN.md`; its section 19a (local environment with AWS production parity) supersedes the local-development sections below.
+
 ## 1. Objectives and scope
 
 Deploy Battle Arena to a personal AWS sandbox for practical AWS training while targeting a monthly infrastructure cost of **USD 0.00**. That figure is a **budget target**, not a guarantee.

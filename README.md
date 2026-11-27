@@ -7,7 +7,8 @@ Laravel 13 REST API for Battle Arena.
 - PHP 8.4 / Laravel 13
 - PostgreSQL
 - Redis
-- Optional S3-compatible storage (RustFS via `battle-arena-infra --profile storage`)
+- S3-compatible object storage for avatars (RustFS locally, Amazon S3 in the proposed AWS target)
+- Runs locally as a [Bref](https://bref.sh) Lambda image (proposed AWS target: Lambda behind API Gateway)
 
 ## Why the catalog is persisted locally
 
@@ -164,13 +165,24 @@ GET /api/creatures/bulbasaur
 
 ```bash
 cd ../battle-arena-infra
-docker compose up --build -d
+docker compose up -d --build
 docker compose exec api php artisan migrate
 docker compose exec api php artisan creatures:import
 ```
 
-- API: http://localhost:8000
-- Optional S3: `docker compose --profile storage up -d`
+- API: http://localhost:8000 (served through the local API Gateway emulator)
+- There is a single local environment that mirrors the proposed AWS architecture. Setup (including `APP_KEY`), daily commands and troubleshooting: `../battle-arena-infra/README.md`
+
+## Lambda runtime notes
+
+- Two Compose services run this code: `api` (HTTP, Bref FPM) and `console` (artisan, Bref console; runs `schedule:run` every minute).
+- The filesystem is read-only except `/tmp`. Compose points Laravel storage, compiled views and bootstrap caches there. Do not write elsewhere at runtime.
+- Source directories are bind-mounted, so code changes are live. Changes to `composer.json`, `composer.lock`, `.env` or `phpstan.neon.dist` need `docker compose up -d --build api console`.
+- Compose environment values (disks, Redis, mail, realtime driver) take precedence over `.env`.
+- Realtime hints: `PVP_REALTIME_DRIVER=lambda` async-invokes the realtime function (`app/Infrastructure/Realtime/LambdaRealtimeNotifier.php`); the default `redis` driver publishes to Redis Pub/Sub. Delivery stays best-effort.
+- Queues run synchronously (`QUEUE_CONNECTION=sync`). Run catalog imports with `--sync` when using `--all`.
+- `bref/bref` and `bref/laravel-bridge` are currently added during the image build. Add them to `composer.json` before a real AWS deployment.
+- Nothing has been deployed to AWS; see `../battle-arena-infra/docs/AWS_MIGRATION_CHECKPOINT.md`.
 
 ## Testing
 
@@ -179,6 +191,22 @@ php artisan test
 # or
 docker compose exec api php artisan test
 ```
+
+### CI gates (PRs to `main`)
+
+GitHub Actions (`.github/workflows/ci.yml`) runs these required checks:
+
+| Check | Local command |
+|---|---|
+| `phpstan` | `composer phpstan` |
+| `unit` | `php artisan test --testsuite=Unit` |
+| `unit-coverage` | `composer test:unit-coverage` |
+| `feature` | `php artisan test --testsuite=Feature` |
+| `pint` | `vendor/bin/pint --test` (soft-fail until style debt is cleared) |
+
+`composer test:unit-coverage` runs Unit **and** Feature (`phpunit.unit-coverage.xml`) and requires **at least 92% line coverage** of `app/Domain` + `app/Application` (Eloquent model directories excluded). Needs `pcov` or `xdebug`. Raise the floor toward 100% as remaining Application error paths gain tests.
+
+Branch protection setup: see [`docs/CI_BRANCH_PROTECTION.md`](docs/CI_BRANCH_PROTECTION.md).
 
 Import/provider tests use `Http::fake` fixtures under `tests/Fixtures/pokeapi`. They do not call live PokéAPI.
 
@@ -265,10 +293,10 @@ Compose runs Mailpit (SMTP `mailpit:1025`, UI http://localhost:8025). `.env.exam
 - Upload validation: JPG/PNG/WebP only (SVG rejected), at most 2048 KB, 32-1024 px per side (`config/game.php` `avatar`).
 - `AvatarImageProcessor` (GD) decodes, center-crops to a square, resizes to 512 px and re-encodes (WebP, or JPEG when WebP is unavailable), which strips metadata. The original bytes are never stored. Objects get random names under `avatars/`.
 - Disk is chosen by `PROFILES_DISK`:
-  - `profiles_local` (default): `storage/app/profiles`, private, backed by the `api_profiles` Docker volume.
-  - `profiles`: private S3 bucket (RustFS) when `docker compose --profile storage up -d` is running.
+  - `profiles` (used by the Compose environment and the AWS target): private S3 bucket (RustFS locally).
+  - `profiles_local` (application default outside Compose): `storage/app/profiles`, private. Not usable on Lambda, which has no persistent disk.
 - Clients never get storage credentials; they load `profile.avatar_url`, which is `GET /api/avatars/{userId}`. Avatars are treated as profile photos (visible to anyone holding the URL); profiles never expose email.
-- The Docker image needs the `gd` extension. Rebuild after pulling the Dockerfile change: `docker compose build api`. Without GD, uploads return `503`.
+- Uploads need the `gd` extension (included in the Compose images). Without GD, uploads return `503`.
 
 ### Data model and commands
 
@@ -313,5 +341,7 @@ Spec: `docs/PHASE5B2_PVP_BATTLE_ENGINE_SPEC_EN.md`. Cursor rule: `.cursor/rules/
 - Evolution execution remains locked
 - Creature/type names are not yet domain-localized; UI chrome is fully translated on clients
 - Alternate forms / species grouping not modeled yet
-- Storage profile is optional and unused by catalog endpoints
+- Object storage holds avatars only; catalog endpoints do not use it
+- A non-UUID PvP id returns `500` on PostgreSQL instead of `404`
+- Accept/decline/cancel `pvp.invitation.changed` hints carry `status`, which the realtime strict schema rejects
 - Persistent Cursor rules live in `.cursor/rules/`

@@ -58,8 +58,12 @@ cd C:/FREELANCE/games/battle-arena-infra
 docker compose ps
 docker compose exec -T api php artisan test --filter=Pvp
 docker compose exec -T api php artisan test --filter=Pve
-docker compose exec -T web sh -c 'npm test -- --run src/features/pvp && npm run typecheck'
-docker compose logs --tail=100 realtime api
+docker compose logs --tail=100 gateway realtime api console
+
+# Web checks run on the host (Node >= 22.12); the web container only serves the build
+cd ../battle-arena-web
+npm test -- --run src/features/pvp
+npm run typecheck
 ```
 
 Mobile checks are from `battle-arena-mobile`: run its actual `package.json` scripts and Expo simulator/device smoke. Node realtime: use existing package scripts. Do not substitute the above illustrative commands for the full project CI matrix.

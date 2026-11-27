@@ -7,6 +7,10 @@ Specifications and implementation prompt for the Laravel-authoritative two-human
 - `PHASE5B2_PVP_BATTLE_ENGINE_SPEC_EN.md` — technical contract for battle states, REST APIs, persistence, shared domain refactoring, rewards, security, Redis/Node hints, test plan and Definition of Done.
 - `CURSOR_PHASE5B2_PVP_BATTLE_ENGINE_PROMPT_EN.txt` — complete implementation instructions for Cursor Agent.
 
+## Local environment
+
+How to run the project is documented in `battle-arena-infra/README.md`; the AWS migration state is in `battle-arena-infra/docs/AWS_MIGRATION_CHECKPOINT.md`. Older phase specs in this folder describe the environment as it was when they were written.
+
 ## Related
 
 - Private lobbies: `PHASE5B_PVP_PRIVATE_ROOMS_SPEC_EN.md`

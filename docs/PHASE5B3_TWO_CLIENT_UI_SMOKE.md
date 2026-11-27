@@ -30,6 +30,10 @@ Backend baseline: `PHASE5B2_TWO_PLAYER_SMOKE.md`. This document adds Web + Expo 
 
 ## Automated checks (executed for 5B.3 handoff)
 
+> **Local environment update (2026-11-27):** Compose now runs a single Lambda-shaped environment. The `web` service is a static Nginx build, so run web tests on the host (Node >= 22.12) instead of `docker compose exec web`. See `battle-arena-infra/README.md`.
+
+The block below is the historical record of that run.
+
 ```bash
 # From battle-arena-infra (Node 22 web image; host Node 20 cannot run Vitest/rolldown)
 docker compose exec -T web sh -c "npm test -- --run src/features/pvp && npm run typecheck"
