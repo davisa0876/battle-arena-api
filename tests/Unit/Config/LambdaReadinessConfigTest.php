@@ -3,6 +3,7 @@
 namespace Tests\Unit\Config;
 
 use Aws\S3\S3Client;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -38,6 +39,9 @@ class LambdaReadinessConfigTest extends TestCase
         $path = (string) config('l5-swagger.defaults.paths.docs');
 
         $this->assertSame(base_path('storage/api-docs'), $path);
+
+        // storage/api-docs/* is gitignored; CI/fresh checkouts must sync before the file exists.
+        $this->assertSame(0, Artisan::call('openapi:sync'));
         $this->assertFileExists($path.'/api-docs.yaml');
     }
 }
