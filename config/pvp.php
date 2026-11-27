@@ -33,6 +33,8 @@ return [
     'presence' => [
         'redis_connection' => env('PVP_PRESENCE_REDIS_CONNECTION', env('WS_ROOM_GRANT_REDIS_CONNECTION', 'ws_tickets')),
         'online_set_key' => env('PVP_PRESENCE_ONLINE_SET_KEY', 'battle-arena:presence:online'),
+        // Must match battle-arena-realtime PRESENCE_CONN_HASH_KEY.
+        'conn_hash_key' => env('PVP_PRESENCE_CONN_HASH_KEY', 'battle-arena:presence:conns'),
         'max_results' => (int) env('PVP_PRESENCE_MAX_RESULTS', 40),
     ],
 

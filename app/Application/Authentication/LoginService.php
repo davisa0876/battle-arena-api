@@ -3,6 +3,7 @@
 namespace App\Application\Authentication;
 
 use App\Application\Authentication\DTOs\AuthenticationResult;
+use App\Application\Pvp\PvpPresenceClearService;
 use App\Models\User;
 use Illuminate\Contracts\Auth\Factory as AuthFactory;
 use Illuminate\Contracts\Hashing\Hasher;
@@ -15,6 +16,7 @@ class LoginService
     public function __construct(
         private readonly AuthFactory $auth,
         private readonly Hasher $hasher,
+        private readonly PvpPresenceClearService $presence,
     ) {}
 
     /**
@@ -61,10 +63,13 @@ class LoginService
      */
     public function logout(User $user, Request $request): void
     {
+        $userId = (int) $user->getAuthIdentifier();
+
         $token = $user->currentAccessToken();
 
         if ($token instanceof PersonalAccessToken) {
             $token->delete();
+            $this->presence->clearForUser($userId);
 
             return;
         }
@@ -72,6 +77,7 @@ class LoginService
         $bearer = $request->bearerToken();
         if (is_string($bearer) && $bearer !== '') {
             PersonalAccessToken::findToken($bearer)?->delete();
+            $this->presence->clearForUser($userId);
 
             return;
         }
@@ -82,5 +88,7 @@ class LoginService
             $request->session()->invalidate();
             $request->session()->regenerateToken();
         }
+
+        $this->presence->clearForUser($userId);
     }
 }

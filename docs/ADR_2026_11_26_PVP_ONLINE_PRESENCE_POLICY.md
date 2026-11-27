@@ -30,5 +30,6 @@ Published machine-readable rules: `GET /api/game/rules` → `battle.pvp_online_p
 
 - Web/Expo mount a global presence session for eligible trainers.
 - Closing the browser/app (or logging out) drops the WS and removes presence.
+- `POST /api/logout` also force-clears the Redis online SET + connection refcount for that user (covers WS disconnect races).
 - Exact-handle invite remains available regardless of online listing.
 - Docs and game-rules copy must not say “keep the lobby open to appear online.”
