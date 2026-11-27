@@ -88,7 +88,8 @@ return [
             /*
              * Absolute path to location where parsed annotations will be stored
              */
-            'docs' => storage_path('api-docs'),
+            // Committed spec inside the app package (not storage_path): on Lambda, storage/ is moved to /tmp.
+            'docs' => base_path('storage/api-docs'),
 
             /*
              * Absolute path to directory where to export views

@@ -40,7 +40,7 @@ Docs are maintained as Horus-style JSON fragments under `resources/docs/swagger/
 MD
         );
 
-        $docsPath = storage_path('api-docs');
+        $docsPath = (string) config('l5-swagger.defaults.paths.docs', base_path('storage/api-docs'));
         File::ensureDirectoryExists($docsPath);
 
         $json = json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);

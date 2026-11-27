@@ -22,6 +22,23 @@ return [
 
     'realtime' => [
         'channel' => env('PVP_REALTIME_CHANNEL', 'battle-arena:realtime:notifications:v1'),
+
+        /*
+        | Notification transport:
+        | - redis  (default): PUBLISH to `channel`; the persistent Node gateway subscribes.
+        | - lambda: async-invoke (InvocationType=Event) the realtime Lambda behind
+        |           API Gateway WebSocket. No long-lived subscriber is required.
+        | Both transports carry the identical hint-only envelope.
+        */
+        'driver' => env('PVP_REALTIME_DRIVER', 'redis'),
+
+        'lambda' => [
+            'function' => env('PVP_REALTIME_LAMBDA_FUNCTION', 'battle-arena-realtime'),
+            'region' => env('PVP_REALTIME_LAMBDA_REGION', env('AWS_DEFAULT_REGION', 'us-east-1')),
+            // Local emulator override only; leave empty in AWS to use the regional endpoint.
+            'endpoint' => env('PVP_REALTIME_LAMBDA_ENDPOINT') ?: null,
+            'timeout_seconds' => (float) env('PVP_REALTIME_LAMBDA_TIMEOUT_SECONDS', 2),
+        ],
     ],
 
     /*
