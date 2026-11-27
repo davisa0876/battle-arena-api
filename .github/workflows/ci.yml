@@ -14,11 +14,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: Tests and style (PHP 8.4)
+  phpstan:
+    name: phpstan
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     steps:
       - uses: actions/checkout@v4
 
@@ -44,18 +43,156 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
 
-      # Tests use SQLite :memory: from phpunit.xml, so no Postgres/Redis service is required.
-      # The throwaway key below is generated per CI run only; no secrets are used.
       - name: Prepare environment
         run: |
           cp .env.example .env
           php artisan key:generate --no-interaction
 
-      # TODO: the codebase currently has pre-existing Pint style violations (10 files).
-      # Run `vendor/bin/pint` once, commit, then remove `continue-on-error` to enforce it.
+      - name: PHPStan
+        run: composer phpstan
+
+  unit:
+    name: unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, pdo_sqlite, sqlite3, bcmath, intl, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      - name: Unit suite
+        run: php artisan test --testsuite=Unit
+
+  unit-coverage:
+    name: unit-coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, pdo_sqlite, sqlite3, bcmath, intl, zip
+          coverage: pcov
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      # phpunit.unit-coverage.xml runs Unit+Feature against Domain+Application (min 92%).
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      - name: Domain+Application coverage gate (min 92%)
+        run: composer test:unit-coverage
+
+  feature:
+    name: feature
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, pdo_sqlite, sqlite3, bcmath, intl, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      - name: Feature suite
+        run: php artisan test --testsuite=Feature
+
+  pint:
+    name: pint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, pdo_sqlite, sqlite3, bcmath, intl, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      # TODO: remove continue-on-error after Pint debt is cleaned and committed.
       - name: Check code style (Pint)
         run: vendor/bin/pint --test
         continue-on-error: true
-
-      - name: Run tests
-        run: php artisan test

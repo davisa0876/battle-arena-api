@@ -17,7 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withSchedule(function (Schedule $schedule): void {
-        $schedule->command('telescope:prune')->daily();
+        // Telescope is a dev-only package; production (--no-dev) builds do not have the command.
+        if (class_exists(\Laravel\Telescope\TelescopeServiceProvider::class)) {
+            $schedule->command('telescope:prune')->daily();
+        }
         // Safe no-op while PVP_TURN_TIMEOUT_ENABLED=false; never mass-forfeit on backlog alone.
         $schedule->command('pvp:adjudicate-action-deadlines')->everyMinute()->withoutOverlapping();
     })

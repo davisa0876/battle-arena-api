@@ -1,0 +1,11 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    # Legacy findings frozen so CI fails only on new issues (regenerate intentionally).
+    - phpstan-baseline.neon
+
+parameters:
+    paths:
+        - app
+    level: 6
+    treatPhpDocTypesAsCertain: false
+

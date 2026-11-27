@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Coverage gate for app/Domain and app/Application (minimum 92% lines).
+
+  Runs Unit and Feature suites together: Domain pure logic is covered mainly by
+  Unit tests; Application services are exercised by Feature HTTP flows plus Unit.
+  CI still has a dedicated Feature job for faster feedback without coverage.
+  Raise the min floor over time toward 100% as remaining Application error paths are covered.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>app/Domain</directory>
+            <directory>app/Application</directory>
+        </include>
+        <!--
+          Eloquent model classes are persistence schema/relations glue.
+          Their behavior is exercised by Feature tests; excluding them from the
+          Domain+Application line gate keeps the gate focused on application logic.
+        -->
+        <exclude>
+            <directory>app/Domain/Battle/Models</directory>
+            <directory>app/Domain/Creatures/Models</directory>
+            <directory>app/Domain/OwnedCreatures/Models</directory>
+            <directory>app/Domain/Players/Models</directory>
+            <directory>app/Domain/Progression/Models</directory>
+            <directory>app/Domain/Pvp/Models</directory>
+            <directory>app/Domain/Selection/Models</directory>
+        </exclude>
+    </source>
+    <php>
+        <!--
+          Compose injects DB_* into $_SERVER. Laravel's Env reader checks $_SERVER
+          before $_ENV, so <server> overrides are required in addition to <env force>.
+        -->
+        <server name="APP_ENV" value="testing"/>
+        <server name="DB_CONNECTION" value="sqlite"/>
+        <server name="DB_DATABASE" value=":memory:"/>
+        <server name="DB_URL" value=""/>
+        <server name="CACHE_STORE" value="array"/>
+        <server name="QUEUE_CONNECTION" value="sync"/>
+        <server name="SESSION_DRIVER" value="array"/>
+        <server name="MAIL_MAILER" value="array"/>
+        <server name="FILESYSTEM_DISK" value="local"/>
+        <server name="PROFILES_DISK" value="profiles_local"/>
+        <server name="SANCTUM_STATEFUL_DOMAINS" value="localhost:3000,127.0.0.1:3000"/>
+        <server name="FRONTEND_URL" value="http://localhost:3000"/>
+        <server name="SESSION_DOMAIN" value="null"/>
+        <server name="TELESCOPE_ENABLED" value="false"/>
+        <server name="POKEAPI_REQUEST_DELAY_MS" value="0"/>
+        <server name="POKEAPI_CACHE_TTL_SECONDS" value="0"/>
+
+        <env name="APP_ENV" value="testing" force="true"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file" force="true"/>
+        <env name="BCRYPT_ROUNDS" value="4" force="true"/>
+        <env name="BROADCAST_CONNECTION" value="null" force="true"/>
+        <env name="CACHE_STORE" value="array" force="true"/>
+        <env name="DB_CONNECTION" value="sqlite" force="true"/>
+        <env name="DB_DATABASE" value=":memory:" force="true"/>
+        <env name="DB_URL" value="" force="true"/>
+        <env name="MAIL_MAILER" value="array" force="true"/>
+        <env name="QUEUE_CONNECTION" value="sync" force="true"/>
+        <env name="SESSION_DRIVER" value="array" force="true"/>
+        <env name="REDIS_CLIENT" value="predis" force="true"/>
+        <env name="FILESYSTEM_DISK" value="local" force="true"/>
+        <env name="PULSE_ENABLED" value="false" force="true"/>
+        <env name="TELESCOPE_ENABLED" value="false" force="true"/>
+        <env name="NIGHTWATCH_ENABLED" value="false" force="true"/>
+        <env name="POKEAPI_REQUEST_DELAY_MS" value="0" force="true"/>
+        <env name="POKEAPI_CACHE_TTL_SECONDS" value="0" force="true"/>
+    </php>
+</phpunit>

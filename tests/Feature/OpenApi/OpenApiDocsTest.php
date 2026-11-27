@@ -10,14 +10,16 @@ class OpenApiDocsTest extends TestCase
     public function test_openapi_sync_publishes_yaml_and_json_for_swagger_ui(): void
     {
         $exit = Artisan::call('openapi:sync');
+        // Swagger UI reads the spec from the configured docs path (inside the app package).
+        $docs = (string) config('l5-swagger.defaults.paths.docs');
 
         $this->assertSame(0, $exit);
-        $this->assertFileExists(storage_path('api-docs/api-docs.yaml'));
-        $this->assertFileExists(storage_path('api-docs/api-docs.json'));
+        $this->assertFileExists($docs.'/api-docs.yaml');
+        $this->assertFileExists($docs.'/api-docs.json');
         $this->assertFileExists(base_path('docs/openapi.yaml'));
         $this->assertFileExists(base_path('docs/openapi.json'));
 
-        $json = json_decode((string) file_get_contents(storage_path('api-docs/api-docs.json')), true);
+        $json = json_decode((string) file_get_contents($docs.'/api-docs.json'), true);
         $this->assertIsArray($json);
         $this->assertSame('3.0.3', $json['openapi'] ?? null);
         $this->assertSame('Battle Arena API', $json['info']['title'] ?? null);
